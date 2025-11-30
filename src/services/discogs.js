@@ -54,10 +54,10 @@ export async function searchDiscogsUniversal(query, perPage = 20) {
       return { results: [], pagination: data.pagination }
     }
 
-    // Process results: filter for artists and masters, add Discogs URLs
+    // Process results: filter for artists, masters, and labels, add Discogs URLs
     const processedResults = await Promise.all(
       data.results
-        .filter(item => item.type === 'artist' || item.type === 'master')
+        .filter(item => item.type === 'artist' || item.type === 'master' || item.type === 'label' || item.type === 'release')
         .map(async (item) => {
           const result = {
             id: item.id,
@@ -69,13 +69,24 @@ export async function searchDiscogsUniversal(query, perPage = 20) {
             uri: item.uri,
             // Construct Discogs detail page URL
             discogs_url: `https://www.discogs.com${item.uri}`,
+            // Add filter-related fields from API
+            format: item.format || [],
+            country: item.country || null,
+            year: item.year || null,
+            genre: item.genre || [],
+            style: item.style || [],
           }
 
-          // If it's a master release, get the version count
-          if (item.type === 'master' && item.id) {
+          // If it's a master or release, get the version count
+          if ((item.type === 'master' || item.type === 'release') && item.id) {
             try {
-              const versionCount = await getMasterVersionCount(item.id)
-              result.version_count = versionCount
+              if (item.type === 'master') {
+                const versionCount = await getMasterVersionCount(item.id)
+                result.version_count = versionCount
+              } else {
+                // For releases, version count is not applicable
+                result.version_count = null
+              }
             } catch (err) {
               console.warn(`Failed to get version count for master ${item.id}:`, err)
               result.version_count = null
