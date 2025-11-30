@@ -1,24 +1,30 @@
-# Discogs Top 5 Albums
+# Discogs Top Charts 2025
 
-A Vue 3 application that displays the top 5 albums from Discogs using their REST API with key/secret authentication.
+A modern, responsive web application showcasing the top albums and artists of 2025, ranked by community engagement. Built with Vue 3 and Vite.
 
 ## Features
 
-- 🎵 Display top 5 albums from Discogs
-- 🔐 Secure authentication using Consumer Key and Secret (stored in .env file)
-- 🔍 Search functionality to find different albums
-- 📱 Responsive design
-- ⚡ Fast loading with Vue 3 and Vite
+- 📀 **Top Albums of 2025** - Displays the top 5 albums ranked by community engagement from Discogs API
+- 🎤 **Top Artists of 2025** - Shows the most engaged artists of the year from Discogs API
+- 🔍 **Search Bar** - UI ready (functionality coming soon)
+- 📱 **Responsive Design** - Works beautifully on desktop and mobile devices
+- ✨ **Figma Design** - Pixel-perfect implementation matching Figma design specifications
+- 🎨 **Discogs Branding** - Official Discogs logo and styling
 
-## Prerequisites
+## Tech Stack
 
-Before running this application, you need to obtain Discogs API credentials:
+- **Vue 3** - Progressive JavaScript framework
+- **Vite** - Next-generation frontend tooling
+- **Discogs API** - Music database and marketplace (integration ready)
 
-1. Go to [Discogs Developer Settings](https://www.discogs.com/settings/developers)
-2. Create a new application
-3. Copy your Consumer Key and Consumer Secret
+## Getting Started
 
-## Installation
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
 
 1. Clone the repository:
 ```bash
@@ -31,75 +37,91 @@ cd discogs-search
 npm install
 ```
 
-3. Configure API credentials:
-   - Copy `.env.example` to `.env`:
-     ```bash
-     cp .env.example .env
-     ```
-   - Edit `.env` and add your Discogs API credentials:
-     ```
-     VITE_DISCOGS_CONSUMER_KEY=your_actual_consumer_key_here
-     VITE_DISCOGS_CONSUMER_SECRET=your_actual_consumer_secret_here
-     ```
-
-4. Start the development server:
+3. Start the development server:
 ```bash
 npm run dev
 ```
 
-5. Open your browser and navigate to `http://localhost:3000`
-
-## Usage
-
-1. The application automatically loads and displays the top 5 Beatles albums when you first visit
-2. Use the search bar to find different artists or albums
-3. Results are displayed in an elegant card-based layout with album art, details, and community stats
-
-## API Authentication
-
-This application uses the Discogs API key/secret authentication method as documented here:
-https://www.discogs.com/developers#page:authentication
-
-The credentials are stored in environment variables and appended to API requests as query parameters:
-- `key`: Your consumer key (from `VITE_DISCOGS_CONSUMER_KEY`)
-- `secret`: Your consumer secret (from `VITE_DISCOGS_CONSUMER_SECRET`)
-
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+4. Open your browser and navigate to `http://localhost:3000`
 
 ## Project Structure
 
 ```
 discogs-search/
 ├── index.html              # Main HTML file
-├── vite.config.js         # Vite configuration
-├── package.json           # Dependencies and scripts
-├── .env                   # Environment variables (gitignored)
-├── .env.example           # Example environment file
 ├── src/
-│   ├── main.js           # Vue app entry point
-│   ├── App.vue           # Main component with albums display
+│   ├── App.vue            # Main app wrapper with header
+│   ├── main.js            # Application entry point
+│   ├── router/
+│   │   └── index.js       # Vue Router configuration
+│   ├── views/
+│   │   ├── Home.vue       # Home page with centered search
+│   │   └── SearchResults.vue  # Search results page
 │   └── services/
-│       └── discogs.js    # Discogs API integration
-└── README.md             # This file
+│       └── discogs.js     # Discogs API service
+├── package.json
+└── README.md
 ```
 
-## Tech Stack
+## Current Implementation
 
-- Vue 3 - Progressive JavaScript framework
-- Vite - Fast build tool and dev server
-- Discogs API - Music database API
+### Home Page (/)
+- Centered search interface
+- Clean, minimalist design
+- Search bar (794x44px, rounded corners)
+- Redirects to `/results?q=search+term` on search
 
-## Security Note
+### Search Results Page (/results)
+- Separate sections for **Releases** and **Artists**
+- Displays top 10 results for each category
+- Rectangular cards (240x240px) for releases
+- Circular images (240x240px) for artists
+- Shows version count for master releases
+- Includes Discogs detail page links
+- "Show All" buttons for each section (future implementation)
+- Horizontal scrolling layout matching Figma design
 
-API credentials are stored in a `.env` file which is excluded from version control via `.gitignore`.
+### Design Implementation
+- Fixed black header bar with clickable Discogs logo (links to home)
+- White background
+- Inria Sans font family
+- Exact spacing and positioning from Figma design
+- Fully responsive design
 
-**Important**: Never commit your `.env` file to version control. The `.env.example` file is provided as a template for other developers.
+### Search Functionality
+- Universal search for artists and master releases via Discogs API
+- Real-time search with URL-based queries
+- Displays version counts for master releases
+- Direct links to Discogs detail pages
+- Filters results to show only artists and master releases
 
-For production deployments, set the environment variables in your hosting platform's configuration.
+## Future Enhancements
+
+- [x] Connect search bar to Discogs API
+- [ ] Implement "Show All" functionality for releases and artists
+- [ ] Add filtering options (genre, year, format)
+- [ ] Implement pagination for more results
+- [ ] Add album/artist detail pages
+- [ ] User authentication and favorites
+- [ ] Dark mode toggle
+
+## API Integration
+
+The app includes a Discogs API service layer (`src/services/discogs.js`) ready for integration. To enable API features:
+
+1. Create a `.env` file in the project root:
+```env
+VITE_DISCOGS_CONSUMER_KEY=your_consumer_key
+VITE_DISCOGS_CONSUMER_SECRET=your_consumer_secret
+```
+
+2. Get your API credentials from [Discogs Developer Portal](https://www.discogs.com/settings/developers)
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
 
 ## License
 
