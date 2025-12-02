@@ -374,10 +374,19 @@ export default {
   opacity: 1;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .filter-sidebar {
-    width: 240px;
-    left: -240px;
+    position: fixed;
+    left: -280px;
+    top: 0;
+    height: 100vh;
+    min-height: auto;
+    z-index: 101;
+    overflow-y: auto;
+  }
+
+  .filter-sidebar.open {
+    left: 0;
   }
 }
 </style>

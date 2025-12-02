@@ -1,13 +1,30 @@
 <template>
   <div class="results-page">
+    <!-- Header Hamburger Button -->
+    <button
+      v-if="showFilters && isMobileView"
+      class="header-hamburger-btn"
+      @click="toggleMobileSidebar"
+      :aria-label="mobileSidebarOpen ? 'Close filters' : 'Open filters'"
+    >
+      <span class="material-icons">menu</span>
+    </button>
+
+    <!-- Mobile Overlay - Only show when sidebar is open -->
+    <div
+      v-if="showFilters && isMobileView && mobileSidebarOpen"
+      class="sidebar-overlay"
+      @click="closeSidebar"
+    ></div>
+
     <FilterSidebar
-      :is-open="showFilters"
+      :is-open="showFilters && (isMobileView ? mobileSidebarOpen : true)"
       :available-formats="availableFormats"
       :available-countries="availableCountries"
       @filter-change="handleFilterChange"
     />
 
-    <div class="content-wrapper" :class="{ 'with-sidebar': showFilters }">
+    <div class="content-wrapper" :class="{ 'with-sidebar': showFilters && !isMobileView }">
       <!-- Search Bar -->
       <div class="search-wrapper">
         <input
@@ -99,12 +116,18 @@
               class="album-card"
             >
               <a :href="release.discogs_url" target="_blank" rel="noopener noreferrer">
-                <img
-                  :src="release.cover_image || release.thumb || '/placeholder-album.png'"
-                  :alt="release.title"
-                  class="album-cover"
-                  @error="handleImageError"
-                />
+                <div class="album-cover-wrapper">
+                  <img
+                    v-if="getImageUrl(release)"
+                    :src="getImageUrl(release)"
+                    :alt="release.title"
+                    class="album-cover"
+                    @error="handleImageError"
+                  />
+                  <div v-else class="image-placeholder">
+                    <span class="material-icons">album</span>
+                  </div>
+                </div>
               </a>
               <div class="album-info">
                 <div class="album-title">{{ release.title }}</div>
@@ -133,11 +156,15 @@
             >
               <a :href="artist.discogs_url" target="_blank" rel="noopener noreferrer">
                 <img
-                  :src="artist.cover_image || artist.thumb || '/placeholder-artist.png'"
+                  v-if="getImageUrl(artist)"
+                  :src="getImageUrl(artist)"
                   :alt="artist.title"
                   class="artist-image"
                   @error="handleImageError"
                 />
+                <div v-else class="artist-image image-placeholder">
+                  <span class="material-icons">person</span>
+                </div>
               </a>
               <div class="artist-info">
                 <div class="artist-name">{{ artist.title }}</div>
@@ -162,11 +189,15 @@
             >
               <a :href="label.discogs_url" target="_blank" rel="noopener noreferrer">
                 <img
-                  :src="label.cover_image || label.thumb || '/placeholder-label.png'"
+                  v-if="getImageUrl(label)"
+                  :src="getImageUrl(label)"
                   :alt="label.title"
                   class="label-image"
                   @error="handleImageError"
                 />
+                <div v-else class="label-image image-placeholder">
+                  <span class="material-icons">label</span>
+                </div>
               </a>
               <div class="label-info">
                 <div class="label-name">{{ label.title }}</div>
@@ -194,11 +225,15 @@
               <a :href="release.discogs_url" target="_blank" rel="noopener noreferrer">
                 <div class="grid-album-cover-wrapper">
                   <img
-                    :src="release.cover_image || release.thumb || '/placeholder-album.png'"
+                    v-if="getImageUrl(release)"
+                    :src="getImageUrl(release)"
                     :alt="release.title"
                     class="grid-album-cover"
                     @error="handleImageError"
                   />
+                  <div v-else class="image-placeholder">
+                    <span class="material-icons">album</span>
+                  </div>
                 </div>
               </a>
               <div class="grid-album-info">
@@ -253,11 +288,15 @@
               <a :href="artist.discogs_url" target="_blank" rel="noopener noreferrer">
                 <div class="grid-artist-image-wrapper">
                   <img
-                    :src="artist.cover_image || artist.thumb || '/placeholder-artist.png'"
+                    v-if="getImageUrl(artist)"
+                    :src="getImageUrl(artist)"
                     :alt="artist.title"
                     class="grid-artist-image"
                     @error="handleImageError"
                   />
+                  <div v-else class="image-placeholder">
+                    <span class="material-icons">person</span>
+                  </div>
                 </div>
               </a>
               <div class="grid-artist-info">
@@ -304,11 +343,15 @@
               <a :href="label.discogs_url" target="_blank" rel="noopener noreferrer">
                 <div class="grid-label-image-wrapper">
                   <img
-                    :src="label.cover_image || label.thumb || '/placeholder-label.png'"
+                    v-if="getImageUrl(label)"
+                    :src="getImageUrl(label)"
                     :alt="label.title"
                     class="grid-label-image"
                     @error="handleImageError"
                   />
+                  <div v-else class="image-placeholder">
+                    <span class="material-icons">label</span>
+                  </div>
                 </div>
               </a>
               <div class="grid-label-info">
@@ -349,7 +392,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchDiscogsUniversal, fetchVersionCountsBatch } from '../services/discogs.js'
 import FilterSidebar from '../components/FilterSidebar.vue'
@@ -372,6 +415,8 @@ export default {
     const hasSearched = ref(false)
     const activeTab = ref('all')
     const sortBy = ref('relevance')
+    const mobileSidebarOpen = ref(false)
+    const isMobileView = ref(false)
 
     // Pagination - Client-side with caching
     const itemsPerPage = 24
@@ -603,8 +648,40 @@ export default {
       }
     }
 
+    const isPlaceholderImage = (url) => {
+      if (!url) return true
+      return url.includes('spacer.gif') || url.includes('placeholder')
+    }
+
     const handleImageError = (e) => {
-      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="240" height="240"%3E%3Crect width="240" height="240" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+      showPlaceholder(e.target)
+    }
+
+    const showPlaceholder = (imgElement) => {
+      imgElement.style.display = 'none'
+      const parent = imgElement.parentElement
+      if (parent && !parent.querySelector('.image-placeholder')) {
+        const placeholder = document.createElement('div')
+        placeholder.className = 'image-placeholder'
+
+        // Determine if it's a release, artist, or label based on parent classes
+        if (parent.classList.contains('album-cover-wrapper') ||
+            parent.classList.contains('grid-album-cover-wrapper')) {
+          placeholder.innerHTML = '<span class="material-icons">album</span>'
+        } else if (parent.classList.contains('artist-image') ||
+                   parent.classList.contains('grid-artist-image-wrapper')) {
+          placeholder.innerHTML = '<span class="material-icons">person</span>'
+        } else {
+          placeholder.innerHTML = '<span class="material-icons">label</span>'
+        }
+
+        parent.appendChild(placeholder)
+      }
+    }
+
+    const getImageUrl = (item) => {
+      const url = item.cover_image || item.thumb || ''
+      return isPlaceholderImage(url) ? '' : url
     }
 
     const setTab = async (tab) => {
@@ -794,6 +871,31 @@ export default {
       return Math.ceil(totalLabelsCount.value / itemsPerPage)
     })
 
+    // Mobile responsive handlers
+    const checkMobileView = () => {
+      isMobileView.value = window.innerWidth <= 1024
+      if (!isMobileView.value) {
+        mobileSidebarOpen.value = false
+      }
+    }
+
+    const toggleMobileSidebar = () => {
+      mobileSidebarOpen.value = !mobileSidebarOpen.value
+    }
+
+    const closeSidebar = () => {
+      mobileSidebarOpen.value = false
+    }
+
+    onMounted(() => {
+      checkMobileView()
+      window.addEventListener('resize', checkMobileView)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('resize', checkMobileView)
+    })
+
     // Watch for route query changes
     watch(() => route.query.q, async (newQuery, oldQuery) => {
       if (newQuery && newQuery !== oldQuery) {
@@ -855,6 +957,12 @@ export default {
       handleImageError,
       setTab,
       handleFilterChange,
+      mobileSidebarOpen,
+      isMobileView,
+      toggleMobileSidebar,
+      closeSidebar,
+      isPlaceholderImage,
+      getImageUrl,
     }
   }
 }
@@ -876,6 +984,45 @@ export default {
 
 .content-wrapper.with-sidebar {
   margin-left: calc(280px + 2%);
+}
+
+/* Header Hamburger Button */
+.header-hamburger-btn {
+  position: fixed;
+  top: 0;
+  right: 2.5%;
+  height: 70px;
+  background: none;
+  border: none;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  z-index: 101;
+}
+
+.header-hamburger-btn:hover {
+  opacity: 0.7;
+}
+
+.header-hamburger-btn .material-icons {
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 200;
+}
+
+/* Mobile Sidebar Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-wrapper {
@@ -1073,6 +1220,15 @@ export default {
   flex-direction: column;
 }
 
+.album-card a,
+.artist-card a,
+.label-card a,
+.grid-album-card a,
+.grid-artist-card a,
+.grid-label-card a {
+  text-decoration: none;
+}
+
 .album-cover {
   width: 240px;
   height: 240px;
@@ -1084,6 +1240,44 @@ export default {
 
 .album-cover:hover {
   transform: scale(1.05);
+}
+
+/* Image Placeholders */
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-placeholder .material-icons {
+  font-size: 64px;
+  color: #d0d0d0;
+  text-decoration: none;
+}
+
+a .image-placeholder {
+  text-decoration: none;
+}
+
+.album-cover-wrapper,
+.grid-album-cover-wrapper {
+  position: relative;
+  width: 240px;
+  height: 240px;
+}
+
+.grid-album-cover-wrapper {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.grid-artist-image-wrapper .image-placeholder,
+.artist-image.image-placeholder {
+  border-radius: 50%;
 }
 
 .album-info {
@@ -1384,8 +1578,12 @@ export default {
 }
 
 @media (max-width: 1024px) {
+  .content-wrapper {
+    max-width: 90%;
+  }
+
   .content-wrapper.with-sidebar {
-    margin-left: calc(240px + 2%);
+    margin-left: 0;
   }
 
   .results-grid {
@@ -1401,7 +1599,6 @@ export default {
 
   .content-wrapper.with-sidebar {
     margin-left: 0;
-    padding-left: 260px;
   }
 
   .tabs-container {
