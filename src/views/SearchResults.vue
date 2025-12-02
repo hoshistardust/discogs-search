@@ -2,6 +2,8 @@
   <div class="results-page">
     <FilterSidebar
       :is-open="showFilters"
+      :available-formats="availableFormats"
+      :available-countries="availableCountries"
       @filter-change="handleFilterChange"
     />
 
@@ -106,8 +108,9 @@
               </a>
               <div class="album-info">
                 <div class="album-title">{{ release.title }}</div>
-                <div class="album-meta" v-if="release.version_count">
+                <div class="album-versions-link" v-if="release.version_count">
                   {{ release.version_count }} version{{ release.version_count !== 1 ? 's' : '' }}
+                  <span class="plus-icon">+</span>
                 </div>
               </div>
             </div>
@@ -204,8 +207,9 @@
                   <span v-if="release.year">{{ release.year }}</span>
                   <span v-if="release.format && release.format.length">{{ release.format[0] }}</span>
                 </div>
-                <div class="grid-album-versions" v-if="release.version_count">
+                <div class="grid-album-versions-link" v-if="release.version_count">
                   {{ release.version_count }} version{{ release.version_count !== 1 ? 's' : '' }}
+                  <span class="plus-icon">+</span>
                 </div>
               </div>
             </div>
@@ -217,22 +221,24 @@
           <!-- Pagination for Releases -->
           <div v-if="totalReleasesPages > 1" class="pagination">
             <button
+              v-if="currentReleasesPage > 1"
               class="pagination-btn"
-              :disabled="currentReleasesPage === 1"
               @click="currentReleasesPage--"
             >
               Previous
             </button>
+            <span v-else class="pagination-spacer"></span>
             <span class="pagination-info">
               Page {{ currentReleasesPage }} of {{ totalReleasesPages }}
             </span>
             <button
+              v-if="currentReleasesPage < totalReleasesPages"
               class="pagination-btn"
-              :disabled="currentReleasesPage === totalReleasesPages"
               @click="currentReleasesPage++"
             >
               Next
             </button>
+            <span v-else class="pagination-spacer"></span>
           </div>
         </div>
 
@@ -266,22 +272,24 @@
           <!-- Pagination for Artists -->
           <div v-if="totalArtistsPages > 1" class="pagination">
             <button
+              v-if="currentArtistsPage > 1"
               class="pagination-btn"
-              :disabled="currentArtistsPage === 1"
               @click="currentArtistsPage--"
             >
               Previous
             </button>
+            <span v-else class="pagination-spacer"></span>
             <span class="pagination-info">
               Page {{ currentArtistsPage }} of {{ totalArtistsPages }}
             </span>
             <button
+              v-if="currentArtistsPage < totalArtistsPages"
               class="pagination-btn"
-              :disabled="currentArtistsPage === totalArtistsPages"
               @click="currentArtistsPage++"
             >
               Next
             </button>
+            <span v-else class="pagination-spacer"></span>
           </div>
         </div>
 
@@ -315,22 +323,24 @@
           <!-- Pagination for Labels -->
           <div v-if="totalLabelsPages > 1" class="pagination">
             <button
+              v-if="currentLabelsPage > 1"
               class="pagination-btn"
-              :disabled="currentLabelsPage === 1"
               @click="currentLabelsPage--"
             >
               Previous
             </button>
+            <span v-else class="pagination-spacer"></span>
             <span class="pagination-info">
               Page {{ currentLabelsPage }} of {{ totalLabelsPages }}
             </span>
             <button
+              v-if="currentLabelsPage < totalLabelsPages"
               class="pagination-btn"
-              :disabled="currentLabelsPage === totalLabelsPages"
               @click="currentLabelsPage++"
             >
               Next
             </button>
+            <span v-else class="pagination-spacer"></span>
           </div>
         </div>
       </div>
@@ -341,7 +351,7 @@
 <script>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { searchDiscogsUniversal } from '../services/discogs.js'
+import { searchDiscogsUniversal, fetchVersionCountsBatch } from '../services/discogs.js'
 import FilterSidebar from '../components/FilterSidebar.vue'
 
 export default {
@@ -363,11 +373,20 @@ export default {
     const activeTab = ref('all')
     const sortBy = ref('relevance')
 
-    // Pagination
+    // Pagination - Client-side with caching
     const itemsPerPage = 24
+    const cacheSize = 100 // Fetch 100 items at once for smooth pagination
     const currentReleasesPage = ref(1)
     const currentArtistsPage = ref(1)
     const currentLabelsPage = ref(1)
+    const totalReleasesCount = ref(0)
+    const totalArtistsCount = ref(0)
+    const totalLabelsCount = ref(0)
+
+    // Cache for fetched data
+    const releasesCache = ref([])
+    const artistsCache = ref([])
+    const labelsCache = ref([])
 
     // Filter state
     const showFilters = computed(() => activeTab.value !== 'all')
@@ -386,6 +405,40 @@ export default {
       }
     }
 
+    // Aggregated filter options
+    const availableFormats = ref([])
+    const availableCountries = ref([])
+
+    const aggregateFilterOptions = (releasesList) => {
+      // Aggregate formats
+      const formatCounts = {}
+      releasesList.forEach(release => {
+        if (release.format && Array.isArray(release.format)) {
+          release.format.forEach(format => {
+            formatCounts[format] = (formatCounts[format] || 0) + 1
+          })
+        }
+      })
+
+      // Aggregate countries
+      const countryCounts = {}
+      releasesList.forEach(release => {
+        if (release.country) {
+          countryCounts[release.country] = (countryCounts[release.country] || 0) + 1
+        }
+      })
+
+      // Sort by count and get top options
+      availableFormats.value = Object.entries(formatCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([format]) => format)
+
+      availableCountries.value = Object.entries(countryCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([country]) => country)
+    }
+
+    // Fetch initial results for "All" view
     const fetchResults = async (query) => {
       if (!query) return
 
@@ -397,10 +450,29 @@ export default {
       try {
         const data = await searchDiscogsUniversal(query, 100)
 
-        // Separate results by type
-        releases.value = data.results.filter(item => item.type === 'master' || item.type === 'release')
+        // Separate results by type - only master releases for "All" view
+        releases.value = data.results.filter(item => item.type === 'master')
         artists.value = data.results.filter(item => item.type === 'artist')
         labels.value = data.results.filter(item => item.type === 'label')
+
+        // Store total counts from API pagination
+        totalReleasesCount.value = data.total || 0
+        totalArtistsCount.value = data.total || 0
+        totalLabelsCount.value = data.total || 0
+
+        // Aggregate filter options from releases
+        aggregateFilterOptions(releases.value)
+
+        // Fetch version counts for releases in "All" view (first 10)
+        if (releases.value.length > 0) {
+          const versionCounts = await fetchVersionCountsBatch(releases.value.slice(0, 10))
+          releases.value = releases.value.map(release => {
+            if (versionCounts.has(release.id)) {
+              return { ...release, version_count: versionCounts.get(release.id) }
+            }
+            return release
+          })
+        }
       } catch (err) {
         error.value = err.message || 'Failed to fetch search results'
         console.error('Search error:', err)
@@ -409,16 +481,152 @@ export default {
       }
     }
 
+    // Fetch releases for a specific page with caching
+    const fetchReleasesPage = async (page) => {
+      if (!currentSearchTerm.value) return
+
+      // Calculate which cache batch we need (each batch = 100 items)
+      const cacheBatch = Math.ceil(page / 4) // 4 pages per 100 items
+
+      // Check if we already have this batch cached
+      const cacheEnd = cacheBatch * cacheSize
+
+      if (releasesCache.value.length < cacheEnd || page === 1) {
+        loading.value = true
+        error.value = null
+
+        try {
+          // Fetch 100 items (4 pages worth) at once, using type filter for accuracy
+          const data = await searchDiscogsUniversal(
+            currentSearchTerm.value,
+            cacheSize,
+            cacheBatch,
+            'master'
+          )
+
+          // Update cache
+          if (cacheBatch === 1) {
+            releasesCache.value = data.results
+          } else {
+            // Append to cache for subsequent batches
+            releasesCache.value = [...releasesCache.value, ...data.results]
+          }
+
+          totalReleasesCount.value = data.total || 0
+
+          // Update filter options from cached results
+          aggregateFilterOptions(releasesCache.value)
+        } catch (err) {
+          error.value = err.message || 'Failed to fetch releases'
+          console.error('Releases fetch error:', err)
+        } finally {
+          loading.value = false
+        }
+      }
+    }
+
+    // Fetch artists for a specific page with caching
+    const fetchArtistsPage = async (page) => {
+      if (!currentSearchTerm.value) return
+
+      // Calculate which cache batch we need
+      const cacheBatch = Math.ceil(page / 4)
+
+      const cacheEnd = cacheBatch * cacheSize
+
+      if (artistsCache.value.length < cacheEnd || page === 1) {
+        loading.value = true
+        error.value = null
+
+        try {
+          // Fetch 100 items at once using type filter
+          const data = await searchDiscogsUniversal(
+            currentSearchTerm.value,
+            cacheSize,
+            cacheBatch,
+            'artist'
+          )
+
+          // Update cache
+          if (cacheBatch === 1) {
+            artistsCache.value = data.results
+          } else {
+            artistsCache.value = [...artistsCache.value, ...data.results]
+          }
+
+          totalArtistsCount.value = data.total || 0
+        } catch (err) {
+          error.value = err.message || 'Failed to fetch artists'
+          console.error('Artists fetch error:', err)
+        } finally {
+          loading.value = false
+        }
+      }
+    }
+
+    // Fetch labels for a specific page with caching
+    const fetchLabelsPage = async (page) => {
+      if (!currentSearchTerm.value) return
+
+      // Calculate which cache batch we need
+      const cacheBatch = Math.ceil(page / 4)
+
+      const cacheEnd = cacheBatch * cacheSize
+
+      if (labelsCache.value.length < cacheEnd || page === 1) {
+        loading.value = true
+        error.value = null
+
+        try {
+          // Fetch 100 items at once using type filter
+          const data = await searchDiscogsUniversal(
+            currentSearchTerm.value,
+            cacheSize,
+            cacheBatch,
+            'label'
+          )
+
+          // Update cache
+          if (cacheBatch === 1) {
+            labelsCache.value = data.results
+          } else {
+            labelsCache.value = [...labelsCache.value, ...data.results]
+          }
+
+          totalLabelsCount.value = data.total || 0
+        } catch (err) {
+          error.value = err.message || 'Failed to fetch labels'
+          console.error('Labels fetch error:', err)
+        } finally {
+          loading.value = false
+        }
+      }
+    }
+
     const handleImageError = (e) => {
       e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="240" height="240"%3E%3Crect width="240" height="240" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
     }
 
-    const setTab = (tab) => {
+    const setTab = async (tab) => {
       activeTab.value = tab
       // Reset pagination when changing tabs
       currentReleasesPage.value = 1
       currentArtistsPage.value = 1
       currentLabelsPage.value = 1
+
+      // Fetch data for the selected tab if cache is empty
+      if (tab === 'releases' && releasesCache.value.length === 0) {
+        await fetchReleasesPage(1)
+        // Fetch version counts after loading releases
+        await loadVersionCounts()
+      } else if (tab === 'releases') {
+        // If cache exists, still load version counts for current page
+        await loadVersionCounts()
+      } else if (tab === 'artists' && artistsCache.value.length === 0) {
+        fetchArtistsPage(1)
+      } else if (tab === 'labels' && labelsCache.value.length === 0) {
+        fetchLabelsPage(1)
+      }
     }
 
     const handleFilterChange = (filters) => {
@@ -429,9 +637,9 @@ export default {
       currentLabelsPage.value = 1
     }
 
-    // Filtered results based on active filters
+    // Filtered results based on active filters (client-side filtering)
     const filteredReleases = computed(() => {
-      let results = [...releases.value]
+      let results = [...releasesCache.value]
 
       // Apply format filter
       if (activeFilters.value.formats.length > 0) {
@@ -475,8 +683,29 @@ export default {
       return results
     })
 
+    // Watch for page changes and fetch new data if needed
+    watch(currentReleasesPage, async (newPage) => {
+      if (activeTab.value === 'releases') {
+        await fetchReleasesPage(newPage)
+        // Fetch version counts for newly loaded page
+        await loadVersionCounts()
+      }
+    })
+
+    watch(currentArtistsPage, (newPage) => {
+      if (activeTab.value === 'artists') {
+        fetchArtistsPage(newPage)
+      }
+    })
+
+    watch(currentLabelsPage, (newPage) => {
+      if (activeTab.value === 'labels') {
+        fetchLabelsPage(newPage)
+      }
+    })
+
     const filteredArtists = computed(() => {
-      let results = [...artists.value]
+      let results = [...artistsCache.value]
 
       if (sortBy.value === 'title') {
         results.sort((a, b) => a.title.localeCompare(b.title))
@@ -486,7 +715,7 @@ export default {
     })
 
     const filteredLabels = computed(() => {
-      let results = [...labels.value]
+      let results = [...labelsCache.value]
 
       if (sortBy.value === 'title') {
         results.sort((a, b) => a.title.localeCompare(b.title))
@@ -495,36 +724,107 @@ export default {
       return results
     })
 
-    // Paginated results
+    // Client-side pagination from cache
     const paginatedReleases = computed(() => {
-      const start = (currentReleasesPage.value - 1) * itemsPerPage
-      const end = start + itemsPerPage
-      return filteredReleases.value.slice(start, end)
+      const filtered = filteredReleases.value
+      const startIndex = (currentReleasesPage.value - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      return filtered.slice(startIndex, endIndex)
     })
 
+    // Fetch version counts for currently visible releases
+    const loadVersionCounts = async () => {
+      const visibleReleases = paginatedReleases.value
+      if (visibleReleases.length === 0) return
+
+      try {
+        const versionCounts = await fetchVersionCountsBatch(visibleReleases)
+
+        // Update the cache with version counts
+        releasesCache.value = releasesCache.value.map(release => {
+          if (versionCounts.has(release.id)) {
+            return { ...release, version_count: versionCounts.get(release.id) }
+          }
+          return release
+        })
+      } catch (err) {
+        console.error('Failed to fetch version counts:', err)
+      }
+    }
+
     const paginatedArtists = computed(() => {
-      const start = (currentArtistsPage.value - 1) * itemsPerPage
-      const end = start + itemsPerPage
-      return filteredArtists.value.slice(start, end)
+      const filtered = filteredArtists.value
+      const startIndex = (currentArtistsPage.value - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      return filtered.slice(startIndex, endIndex)
     })
 
     const paginatedLabels = computed(() => {
-      const start = (currentLabelsPage.value - 1) * itemsPerPage
-      const end = start + itemsPerPage
-      return filteredLabels.value.slice(start, end)
+      const filtered = filteredLabels.value
+      const startIndex = (currentLabelsPage.value - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      return filtered.slice(startIndex, endIndex)
     })
 
-    // Total pages
-    const totalReleasesPages = computed(() => Math.ceil(filteredReleases.value.length / itemsPerPage))
-    const totalArtistsPages = computed(() => Math.ceil(filteredArtists.value.length / itemsPerPage))
-    const totalLabelsPages = computed(() => Math.ceil(filteredLabels.value.length / itemsPerPage))
+    // Total pages based on filtered results or API total count
+    const totalReleasesPages = computed(() => {
+      // If filtering is active, calculate based on filtered results
+      if (activeFilters.value.formats.length > 0 ||
+          activeFilters.value.countries.length > 0 ||
+          activeFilters.value.decades.length > 0) {
+        return Math.ceil(filteredReleases.value.length / itemsPerPage)
+      }
+      // Otherwise, use total count from API
+      return Math.ceil(totalReleasesCount.value / itemsPerPage)
+    })
+
+    const totalArtistsPages = computed(() => {
+      // Use filtered count if sorting is applied, otherwise use API total
+      if (filteredArtists.value.length > 0 && filteredArtists.value.length < totalArtistsCount.value) {
+        return Math.ceil(filteredArtists.value.length / itemsPerPage)
+      }
+      return Math.ceil(totalArtistsCount.value / itemsPerPage)
+    })
+
+    const totalLabelsPages = computed(() => {
+      // Use filtered count if sorting is applied, otherwise use API total
+      if (filteredLabels.value.length > 0 && filteredLabels.value.length < totalLabelsCount.value) {
+        return Math.ceil(filteredLabels.value.length / itemsPerPage)
+      }
+      return Math.ceil(totalLabelsCount.value / itemsPerPage)
+    })
 
     // Watch for route query changes
-    watch(() => route.query.q, (newQuery) => {
-      if (newQuery) {
+    watch(() => route.query.q, async (newQuery, oldQuery) => {
+      if (newQuery && newQuery !== oldQuery) {
         searchQuery.value = newQuery
-        fetchResults(newQuery)
-        activeTab.value = 'all' // Reset to All view on new search
+        currentSearchTerm.value = newQuery
+        // Clear all caches on new search
+        releasesCache.value = []
+        artistsCache.value = []
+        labelsCache.value = []
+        // Reset pagination
+        currentReleasesPage.value = 1
+        currentArtistsPage.value = 1
+        currentLabelsPage.value = 1
+
+        // Fetch results for "All" view first
+        await fetchResults(newQuery)
+
+        // If on a filtered tab, fetch that specific data
+        if (activeTab.value === 'releases') {
+          await fetchReleasesPage(1)
+          await loadVersionCounts()
+        } else if (activeTab.value === 'artists') {
+          await fetchArtistsPage(1)
+        } else if (activeTab.value === 'labels') {
+          await fetchLabelsPage(1)
+        }
+
+        // Keep the current tab unless it's the first search
+        if (!oldQuery) {
+          activeTab.value = 'all'
+        }
       }
     }, { immediate: true })
 
@@ -540,6 +840,8 @@ export default {
       activeTab,
       sortBy,
       showFilters,
+      availableFormats,
+      availableCountries,
       paginatedReleases,
       paginatedArtists,
       paginatedLabels,
@@ -560,6 +862,7 @@ export default {
 
 <style scoped>
 .results-page {
+  position: relative;
   min-height: calc(100vh - 70px);
   padding: 40px 20px;
   margin-top: 70px;
@@ -592,7 +895,7 @@ export default {
 
 .search-field {
   font-family: 'Inria Sans', sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   color: #717171;
   border: none;
   outline: none;
@@ -774,7 +1077,7 @@ export default {
   width: 240px;
   height: 240px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 0px;
   margin-bottom: 12px;
   transition: transform 0.2s;
 }
@@ -807,6 +1110,29 @@ export default {
   font-family: 'Inria Sans', sans-serif;
   font-size: 12px;
   color: #717171;
+}
+
+.album-versions-link {
+  font-family: 'Inria Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #000000;
+  transition: opacity 0.2s;
+}
+
+.album-versions-link:hover {
+  opacity: 0.7;
+}
+
+.plus-icon {
+  font-size: 18px;
+  font-weight: 700;
 }
 
 /* Artists - Circular Cards */
@@ -907,7 +1233,14 @@ export default {
   flex-direction: column;
 }
 
-.grid-album-cover-wrapper,
+.grid-album-cover-wrapper {
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: 12px;
+  border-radius: 0px;
+  overflow: hidden;
+}
+
 .grid-artist-image-wrapper,
 .grid-label-image-wrapper {
   width: 100%;
@@ -984,6 +1317,24 @@ export default {
   color: #717171;
 }
 
+.grid-album-versions-link {
+  font-family: 'Inria Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #000000;
+  transition: opacity 0.2s;
+}
+
+.grid-album-versions-link:hover {
+  opacity: 0.7;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
@@ -1015,9 +1366,14 @@ export default {
   cursor: not-allowed;
 }
 
+.pagination-spacer {
+  width: 100px;
+  display: inline-block;
+}
+
 .pagination-info {
   font-family: 'Inria Sans', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   color: #000000;
 }
 

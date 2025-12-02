@@ -8,19 +8,22 @@
           {{ formatExpanded ? '−' : '+' }}
         </button>
       </div>
+      <div class="filter-divider"></div>
       <Transition name="expand">
-        <div v-show="formatExpanded" class="filter-options">
+        <div v-show="formatExpanded" class="filter-content">
+          <div class="filter-options">
+            <button
+              v-for="format in displayedFormats"
+              :key="format"
+              class="filter-option"
+              :class="{ active: selectedFormats.includes(format) }"
+              @click="toggleFormat(format)"
+            >
+              {{ format }}
+            </button>
+          </div>
           <button
-            v-for="(format, index) in displayedFormats"
-            :key="format"
-            class="filter-option"
-            :class="{ active: selectedFormats.includes(format) }"
-            @click="toggleFormat(format)"
-          >
-            {{ format }}
-          </button>
-          <button
-            v-if="formats.length > 12"
+            v-if="availableFormats.length > 12"
             class="view-all-btn"
             @click="openFormatsPopup"
           >
@@ -38,19 +41,22 @@
           {{ countryExpanded ? '−' : '+' }}
         </button>
       </div>
+      <div class="filter-divider"></div>
       <Transition name="expand">
-        <div v-show="countryExpanded" class="filter-options">
+        <div v-show="countryExpanded" class="filter-content">
+          <div class="filter-options">
+            <button
+              v-for="country in displayedCountries"
+              :key="country"
+              class="filter-option"
+              :class="{ active: selectedCountries.includes(country) }"
+              @click="toggleCountry(country)"
+            >
+              {{ country }}
+            </button>
+          </div>
           <button
-            v-for="country in displayedCountries"
-            :key="country"
-            class="filter-option"
-            :class="{ active: selectedCountries.includes(country) }"
-            @click="toggleCountry(country)"
-          >
-            {{ country }}
-          </button>
-          <button
-            v-if="countries.length > 12"
+            v-if="availableCountries.length > 12"
             class="view-all-btn"
             @click="openCountriesPopup"
           >
@@ -65,9 +71,10 @@
       <div class="filter-header" @click="toggleSection('decade')">
         <h3 class="filter-title">Decade</h3>
         <button class="toggle-btn" :aria-label="decadeExpanded ? 'Collapse' : 'Expand'">
-          {{ decadeExpanded ? '+' : '−' }}
+          {{ decadeExpanded ? '−' : '+' }}
         </button>
       </div>
+      <div class="filter-divider"></div>
       <Transition name="expand">
         <div v-show="decadeExpanded" class="filter-options">
           <button
@@ -87,7 +94,7 @@
     <MultiSelectPopup
       :is-open="showFormatsPopup"
       title="All Formats"
-      :options="formats"
+      :options="allFormats"
       v-model="selectedFormats"
       :searchable="true"
       @close="showFormatsPopup = false"
@@ -97,7 +104,7 @@
     <MultiSelectPopup
       :is-open="showCountriesPopup"
       title="All Countries"
-      :options="countries"
+      :options="allCountries"
       v-model="selectedCountries"
       :searchable="true"
       @close="showCountriesPopup = false"
@@ -108,6 +115,7 @@
 <script>
 import { ref, computed, watch } from 'vue';
 import MultiSelectPopup from './MultiSelectPopup.vue';
+import { getFormats, getCountries } from '../services/discogs.js';
 
 export default {
   name: 'FilterSidebar',
@@ -119,12 +127,20 @@ export default {
       type: Boolean,
       default: false,
     },
+    availableFormats: {
+      type: Array,
+      default: () => [],
+    },
+    availableCountries: {
+      type: Array,
+      default: () => [],
+    },
   },
   emits: ['filter-change'],
   setup(props, { emit }) {
     const formatExpanded = ref(true);
     const countryExpanded = ref(true);
-    const decadeExpanded = ref(false);
+    const decadeExpanded = ref(true);
 
     const selectedFormats = ref([]);
     const selectedCountries = ref([]);
@@ -133,26 +149,15 @@ export default {
     const showFormatsPopup = ref(false);
     const showCountriesPopup = ref(false);
 
-    // Ranked formats - most common first (based on Discogs popularity)
-    const formats = ref([
-      'Vinyl', 'CD', 'Album', 'LP', 'Compilation', 'Reissue',
-      'Stereo', 'Remastered', 'Box Set', 'Digital', 'Cassette', 'EP',
-      'Single', 'DVD', 'Limited Edition', 'Picture Disc', '12"', '7"',
-      'SACD', 'Blu-ray', 'Mono', 'Promo'
-    ]);
+    // Complete lists for "View all" popups (all available options)
+    const allFormats = ref(getFormats());
+    const allCountries = ref(getCountries());
 
-    // Ranked countries - most common release countries
-    const countries = ref([
-      'US', 'UK', 'Germany', 'Japan', 'Europe', 'France',
-      'Canada', 'Netherlands', 'Italy', 'Australia', 'Sweden', 'Spain',
-      'Brazil', 'Belgium', 'Austria', 'Switzerland', 'Russia', 'Denmark',
-      'Norway', 'Poland', 'Mexico', 'Argentina', 'South Korea', 'Finland'
-    ]);
+    // Top 12 from search results for sidebar display
+    const displayedFormats = computed(() => props.availableFormats.slice(0, 12));
+    const displayedCountries = computed(() => props.availableCountries.slice(0, 12));
 
     const decades = ref([2020, 2010, 2000, 1990, 1980, 1970, 1960, 1950, 1940, 1930, 1920]);
-
-    const displayedFormats = computed(() => formats.value.slice(0, 12));
-    const displayedCountries = computed(() => countries.value.slice(0, 12));
 
     const toggleSection = (section) => {
       if (section === 'format') formatExpanded.value = !formatExpanded.value;
@@ -219,8 +224,8 @@ export default {
       selectedDecades,
       showFormatsPopup,
       showCountriesPopup,
-      formats,
-      countries,
+      allFormats,
+      allCountries,
       decades,
       displayedFormats,
       displayedCountries,
@@ -237,16 +242,15 @@ export default {
 
 <style scoped>
 .filter-sidebar {
-  position: fixed;
+  position: absolute;
   left: -280px;
-  top: 70px;
+  top: 0;
   width: 280px;
-  height: calc(100vh - 70px);
+  min-height: 100%;
   background: white;
-  border-right: 1px solid #e0e0e0;
-  overflow-y: auto;
+  border-right: 1px solid #000000;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 50;
+  z-index: 100;
   padding: 20px;
 }
 
@@ -255,13 +259,7 @@ export default {
 }
 
 .filter-section {
-  margin-bottom: 24px;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 16px;
-}
-
-.filter-section:last-child {
-  border-bottom: none;
+  margin-bottom: 32px;
 }
 
 .filter-header {
@@ -271,6 +269,12 @@ export default {
   cursor: pointer;
   margin-bottom: 12px;
   user-select: none;
+}
+
+.filter-divider {
+  height: 1px;
+  background: #000000;
+  margin-bottom: 12px;
 }
 
 .filter-title {
@@ -299,6 +303,12 @@ export default {
 
 .toggle-btn:hover {
   transform: scale(1.2);
+}
+
+.filter-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .filter-options {
@@ -330,14 +340,16 @@ export default {
 
 .view-all-btn {
   font-family: 'Inria Sans', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   color: #717171;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 0;
-  text-decoration: underline;
+  padding: 0;
+  text-align: right;
+  text-decoration: none;
   transition: color 0.2s;
+  align-self: flex-end;
 }
 
 .view-all-btn:hover {

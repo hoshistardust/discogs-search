@@ -15,9 +15,11 @@ const CONSUMER_SECRET = import.meta.env.VITE_DISCOGS_CONSUMER_SECRET
  * Returns results with links to Discogs and version counts for masters
  * @param {string} query - Search query
  * @param {number} perPage - Number of results per page (default 20)
+ * @param {number} page - Page number (default 1)
+ * @param {string} type - Optional type filter ('master', 'release', 'artist', 'label')
  * @returns {Promise<Object>} Object with results array and metadata
  */
-export async function searchDiscogsUniversal(query, perPage = 20) {
+export async function searchDiscogsUniversal(query, perPage = 20, page = 1, type = null) {
   try {
     // Build the search URL with authentication parameters
     const searchUrl = new URL(`${DISCOGS_API_BASE}/database/search`)
@@ -29,6 +31,12 @@ export async function searchDiscogsUniversal(query, perPage = 20) {
     // Add search parameters - search both artists and masters
     searchUrl.searchParams.append('q', query)
     searchUrl.searchParams.append('per_page', perPage.toString())
+    searchUrl.searchParams.append('page', page.toString())
+
+    // Add type filter if specified
+    if (type) {
+      searchUrl.searchParams.append('type', type)
+    }
 
     // Make the API request
     const response = await fetch(searchUrl.toString(), {
@@ -55,10 +63,13 @@ export async function searchDiscogsUniversal(query, perPage = 20) {
     }
 
     // Process results: filter for artists, masters, and labels, add Discogs URLs
+    // Only filter if no type was specified (for universal search)
+    const resultsToProcess = type
+      ? data.results
+      : data.results.filter(item => item.type === 'artist' || item.type === 'master' || item.type === 'label' || item.type === 'release')
+
     const processedResults = await Promise.all(
-      data.results
-        .filter(item => item.type === 'artist' || item.type === 'master' || item.type === 'label' || item.type === 'release')
-        .map(async (item) => {
+      resultsToProcess.map(async (item) => {
           const result = {
             id: item.id,
             type: item.type,
@@ -77,21 +88,8 @@ export async function searchDiscogsUniversal(query, perPage = 20) {
             style: item.style || [],
           }
 
-          // If it's a master or release, get the version count
-          if ((item.type === 'master' || item.type === 'release') && item.id) {
-            try {
-              if (item.type === 'master') {
-                const versionCount = await getMasterVersionCount(item.id)
-                result.version_count = versionCount
-              } else {
-                // For releases, version count is not applicable
-                result.version_count = null
-              }
-            } catch (err) {
-              console.warn(`Failed to get version count for master ${item.id}:`, err)
-              result.version_count = null
-            }
-          }
+          // Version count will be fetched separately for visible items only
+          result.version_count = null
 
           // Add artist-specific data
           if (item.type === 'artist') {
@@ -194,6 +192,44 @@ export async function getMasterVersionCount(masterId) {
     console.error('Error fetching master version count:', error)
     return null
   }
+}
+
+/**
+ * Fetch version counts for multiple masters with rate limiting
+ * @param {Array} releases - Array of release objects with id and type
+ * @returns {Promise<Map>} Map of master IDs to version counts
+ */
+export async function fetchVersionCountsBatch(releases) {
+  const versionCounts = new Map()
+  const masters = releases.filter(r => r.type === 'master')
+
+  // Process in batches of 5 with 200ms delay between each request
+  const BATCH_SIZE = 5
+  const DELAY_MS = 200
+
+  for (let i = 0; i < masters.length; i += BATCH_SIZE) {
+    const batch = masters.slice(i, i + BATCH_SIZE)
+
+    // Fetch batch in parallel
+    const promises = batch.map(async (master) => {
+      const count = await getMasterVersionCount(master.id)
+      return { id: master.id, count }
+    })
+
+    const results = await Promise.all(promises)
+
+    // Store results
+    results.forEach(({ id, count }) => {
+      versionCounts.set(id, count)
+    })
+
+    // Delay before next batch (except for last batch)
+    if (i + BATCH_SIZE < masters.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS))
+    }
+  }
+
+  return versionCounts
 }
 
 /**
@@ -352,6 +388,196 @@ export async function getTop2025Artists() {
     console.error('Error fetching top 2025 artists:', error)
     throw error
   }
+}
+
+/**
+ * Get list of all available formats from Discogs
+ * Note: Comprehensive list based on Discogs format taxonomy
+ * @returns {Array} Array of format strings
+ */
+export function getFormats() {
+  return [
+    'Vinyl',
+    'CD',
+    'Cassette',
+    'DVD',
+    'Blu-ray',
+    'File',
+    'Box Set',
+    'Album',
+    'LP',
+    '12"',
+    '7"',
+    '10"',
+    'EP',
+    'Single',
+    'Maxi-Single',
+    'Compilation',
+    'Reissue',
+    'Repress',
+    'Limited Edition',
+    'Numbered',
+    'Promo',
+    'Test Pressing',
+    'White Label',
+    'Acetate',
+    'Transcription Disc',
+    'Flexi-disc',
+    'Lathe Cut',
+    'Edison Disc',
+    'Cylinder',
+    'Reel-To-Reel',
+    '8-Track',
+    'DAT',
+    'MiniDisc',
+    'VHS',
+    'Betamax',
+    'LaserDisc',
+    'VCD',
+    'SVCD',
+    'UMD',
+    'HD DVD',
+    'SACD',
+    'DualDisc',
+    'Shellac',
+    'Hybrid',
+    'Enhanced',
+    'CDr',
+    'DVDr',
+    'MP3',
+    'FLAC',
+    'WAV',
+    'AAC',
+    'Download',
+    'Streaming'
+  ].sort()
+}
+
+/**
+ * Get list of all available countries from Discogs
+ * Note: Comprehensive list of countries commonly found in Discogs database
+ * @returns {Array} Array of country strings
+ */
+export function getCountries() {
+  return [
+    'Afghanistan',
+    'Albania',
+    'Algeria',
+    'Argentina',
+    'Armenia',
+    'Australia',
+    'Austria',
+    'Azerbaijan',
+    'Bahrain',
+    'Bangladesh',
+    'Belarus',
+    'Belgium',
+    'Belize',
+    'Bolivia',
+    'Bosnia and Herzegovina',
+    'Brazil',
+    'Bulgaria',
+    'Cambodia',
+    'Canada',
+    'Chile',
+    'China',
+    'Colombia',
+    'Costa Rica',
+    'Croatia',
+    'Cuba',
+    'Cyprus',
+    'Czech Republic',
+    'Czechoslovakia',
+    'Denmark',
+    'Dominican Republic',
+    'Ecuador',
+    'Egypt',
+    'El Salvador',
+    'Estonia',
+    'Ethiopia',
+    'Finland',
+    'France',
+    'Georgia',
+    'Germany',
+    'Ghana',
+    'Greece',
+    'Guatemala',
+    'Honduras',
+    'Hong Kong',
+    'Hungary',
+    'Iceland',
+    'India',
+    'Indonesia',
+    'Iran',
+    'Iraq',
+    'Ireland',
+    'Israel',
+    'Italy',
+    'Jamaica',
+    'Japan',
+    'Jordan',
+    'Kazakhstan',
+    'Kenya',
+    'Kuwait',
+    'Latvia',
+    'Lebanon',
+    'Lithuania',
+    'Luxembourg',
+    'Macao',
+    'Malaysia',
+    'Malta',
+    'Mexico',
+    'Moldova',
+    'Monaco',
+    'Morocco',
+    'Netherlands',
+    'New Zealand',
+    'Nigeria',
+    'North Korea',
+    'Norway',
+    'Pakistan',
+    'Palestine',
+    'Panama',
+    'Paraguay',
+    'Peru',
+    'Philippines',
+    'Poland',
+    'Portugal',
+    'Puerto Rico',
+    'Qatar',
+    'Romania',
+    'Russia',
+    'Saudi Arabia',
+    'Senegal',
+    'Serbia',
+    'Singapore',
+    'Slovakia',
+    'Slovenia',
+    'South Africa',
+    'South Korea',
+    'Soviet Union (USSR)',
+    'Spain',
+    'Sri Lanka',
+    'Sweden',
+    'Switzerland',
+    'Syria',
+    'Taiwan',
+    'Tanzania',
+    'Thailand',
+    'Trinidad & Tobago',
+    'Tunisia',
+    'Turkey',
+    'Ukraine',
+    'United Arab Emirates',
+    'United Kingdom',
+    'United States',
+    'Uruguay',
+    'Uzbekistan',
+    'Venezuela',
+    'Vietnam',
+    'Yugoslavia',
+    'Zimbabwe'
+  ].sort()
 }
 
 /**

@@ -60,7 +60,7 @@ export default {
 
 .header-content {
   position: relative;
-  width: 85%;
+  width: 95%;
   max-width: 1440px;
   margin: 0 auto;
   height: 100%;
