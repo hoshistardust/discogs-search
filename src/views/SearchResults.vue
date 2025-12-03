@@ -568,6 +568,9 @@ export default {
           loading.value = false
         }
       }
+
+      // Load version counts only for the current page, not all 100 items
+      await loadVersionCounts()
     }
 
     // Fetch artists for a specific page with caching
@@ -693,11 +696,10 @@ export default {
 
       // Fetch data for the selected tab if cache is empty
       if (tab === 'releases' && releasesCache.value.length === 0) {
+        // Fetch first 100 releases (4 pages worth) but don't load version counts yet
         await fetchReleasesPage(1)
-        // Fetch version counts after loading releases
-        await loadVersionCounts()
       } else if (tab === 'releases') {
-        // If cache exists, still load version counts for current page
+        // If cache exists, load version counts only for current page (24 items)
         await loadVersionCounts()
       } else if (tab === 'artists' && artistsCache.value.length === 0) {
         fetchArtistsPage(1)
@@ -763,9 +765,8 @@ export default {
     // Watch for page changes and fetch new data if needed
     watch(currentReleasesPage, async (newPage) => {
       if (activeTab.value === 'releases') {
+        // Fetch the batch if not cached, which will also load version counts
         await fetchReleasesPage(newPage)
-        // Fetch version counts for newly loaded page
-        await loadVersionCounts()
       }
     })
 
@@ -915,8 +916,8 @@ export default {
 
         // If on a filtered tab, fetch that specific data
         if (activeTab.value === 'releases') {
+          // Fetch first 100 releases (includes version counts for first page)
           await fetchReleasesPage(1)
-          await loadVersionCounts()
         } else if (activeTab.value === 'artists') {
           await fetchArtistsPage(1)
         } else if (activeTab.value === 'labels') {
