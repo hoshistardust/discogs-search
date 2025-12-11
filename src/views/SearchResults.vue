@@ -24,28 +24,25 @@
       @filter-change="handleFilterChange"
     />
 
-    <div class="content-wrapper" :class="{ 'with-sidebar': showFilters && !isMobileView }">
+    <div
+      class="content-wrapper"
+      :class="{ 'with-sidebar': showFilters && !isMobileView }"
+    >
       <!-- Search Bar -->
       <div class="search-wrapper">
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search for Albums, Artists, and Genres"
+          placeholder="Search for Releases, Artists, and Labels"
           class="search-field"
           @keyup.enter="performSearch"
         />
-        <svg
-          class="search-icon"
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
+        <span
+          class="material-symbols-outlined search-icon"
           @click="performSearch"
-          style="cursor: pointer;"
         >
-          <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M14 14L11.1 11.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+          search
+        </span>
       </div>
 
       <!-- Tabs -->
@@ -115,7 +112,11 @@
               :key="release.id"
               class="album-card"
             >
-              <a :href="release.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="release.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <div class="album-cover-wrapper">
                   <img
                     v-if="getImageUrl(release)"
@@ -131,9 +132,71 @@
               </a>
               <div class="album-info">
                 <div class="album-title">{{ release.title }}</div>
-                <div class="album-versions-link" v-if="release.version_count">
-                  {{ release.version_count }} version{{ release.version_count !== 1 ? 's' : '' }}
-                  <span class="plus-icon">+</span>
+                <div
+                  class="album-versions-link"
+                  v-if="release.version_count && release.type === 'master'"
+                  @click="toggleVersions(release)"
+                >
+                  {{ release.version_count }} version{{
+                    release.version_count !== 1 ? "s" : ""
+                  }}
+                  <span class="plus-icon">{{
+                    expandedReleaseId === release.id ? "−" : "+"
+                  }}</span>
+                </div>
+              </div>
+              <!-- Expandable Versions Panel with smooth animation -->
+              <div
+                class="versions-panel all-view-versions"
+                :class="{ open: expandedReleaseId === release.id }"
+              >
+                <div
+                  v-if="loadingVersions && expandedReleaseId === release.id"
+                  class="versions-loading"
+                >
+                  Loading versions...
+                </div>
+                <div
+                  v-else-if="
+                    expandedReleaseId === release.id &&
+                    expandedVersions.length > 0
+                  "
+                  class="versions-list"
+                >
+                  <a
+                    v-for="version in expandedVersions"
+                    :key="version.id"
+                    :href="version.discogs_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="version-item"
+                  >
+                    <img
+                      :src="
+                        version.thumb ||
+                        release.cover_image ||
+                        '/placeholder-album.png'
+                      "
+                      :alt="version.title"
+                      class="version-thumb"
+                      @error="handleImageError"
+                    />
+                    <div class="version-info">
+                      <div class="version-format">{{ version.format }}</div>
+                      <div class="version-year">{{ version.year }}</div>
+                      <div class="version-country" v-if="version.country">
+                        {{ version.country }}
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                <div
+                  v-else-if="
+                    expandedReleaseId === release.id && !loadingVersions
+                  "
+                  class="versions-empty"
+                >
+                  No versions found
                 </div>
               </div>
             </div>
@@ -154,7 +217,11 @@
               :key="artist.id"
               class="artist-card"
             >
-              <a :href="artist.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="artist.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <img
                   v-if="getImageUrl(artist)"
                   :src="getImageUrl(artist)"
@@ -187,7 +254,11 @@
               :key="label.id"
               class="label-card"
             >
-              <a :href="label.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="label.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <img
                   v-if="getImageUrl(label)"
                   :src="getImageUrl(label)"
@@ -207,7 +278,15 @@
         </div>
 
         <!-- No Results -->
-        <div v-if="releases.length === 0 && artists.length === 0 && labels.length === 0 && hasSearched" class="no-results">
+        <div
+          v-if="
+            releases.length === 0 &&
+            artists.length === 0 &&
+            labels.length === 0 &&
+            hasSearched
+          "
+          class="no-results"
+        >
           No results found for "{{ currentSearchTerm }}"
         </div>
       </div>
@@ -222,7 +301,11 @@
               :key="release.id"
               class="grid-album-card"
             >
-              <a :href="release.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="release.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <div class="grid-album-cover-wrapper">
                   <img
                     v-if="getImageUrl(release)"
@@ -240,18 +323,80 @@
                 <div class="grid-album-title">{{ release.title }}</div>
                 <div class="grid-album-meta">
                   <span v-if="release.year">{{ release.year }}</span>
-                  <span v-if="release.format && release.format.length">{{ release.format[0] }}</span>
+                  <span v-if="release.format && release.format.length">{{
+                    release.format[0]
+                  }}</span>
                 </div>
-                <div class="grid-album-versions-link" v-if="release.version_count">
-                  {{ release.version_count }} version{{ release.version_count !== 1 ? 's' : '' }}
-                  <span class="plus-icon">+</span>
+                <div
+                  class="grid-album-versions-link"
+                  v-if="release.version_count && release.type === 'master'"
+                  @click="toggleVersions(release)"
+                >
+                  {{ release.version_count }} version{{
+                    release.version_count !== 1 ? "s" : ""
+                  }}
+                  <span class="plus-icon">{{
+                    expandedReleaseId === release.id ? "−" : "+"
+                  }}</span>
+                </div>
+              </div>
+              <!-- Expandable Versions Panel with smooth animation -->
+              <div
+                class="versions-panel"
+                :class="{ open: expandedReleaseId === release.id }"
+              >
+                <div
+                  v-if="loadingVersions && expandedReleaseId === release.id"
+                  class="versions-loading"
+                >
+                  Loading versions...
+                </div>
+                <div
+                  v-else-if="
+                    expandedReleaseId === release.id &&
+                    expandedVersions.length > 0
+                  "
+                  class="versions-list"
+                >
+                  <a
+                    v-for="version in expandedVersions"
+                    :key="version.id"
+                    :href="version.discogs_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="version-item"
+                  >
+                    <img
+                      :src="
+                        version.thumb ||
+                        release.cover_image ||
+                        '/placeholder-album.png'
+                      "
+                      :alt="version.title"
+                      class="version-thumb"
+                      @error="handleImageError"
+                    />
+                    <div class="version-info">
+                      <div class="version-format">{{ version.format }}</div>
+                      <div class="version-year">{{ version.year }}</div>
+                      <div class="version-country" v-if="version.country">
+                        {{ version.country }}
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                <div
+                  v-else-if="
+                    expandedReleaseId === release.id && !loadingVersions
+                  "
+                  class="versions-empty"
+                >
+                  No versions found
                 </div>
               </div>
             </div>
           </div>
-          <div v-else class="no-results">
-            No releases found
-          </div>
+          <div v-else class="no-results">No releases found</div>
 
           <!-- Pagination for Releases -->
           <div v-if="totalReleasesPages > 1" class="pagination">
@@ -285,7 +430,11 @@
               :key="artist.id"
               class="grid-artist-card"
             >
-              <a :href="artist.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="artist.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <div class="grid-artist-image-wrapper">
                   <img
                     v-if="getImageUrl(artist)"
@@ -304,9 +453,7 @@
               </div>
             </div>
           </div>
-          <div v-else class="no-results">
-            No artists found
-          </div>
+          <div v-else class="no-results">No artists found</div>
 
           <!-- Pagination for Artists -->
           <div v-if="totalArtistsPages > 1" class="pagination">
@@ -340,7 +487,11 @@
               :key="label.id"
               class="grid-label-card"
             >
-              <a :href="label.discogs_url" target="_blank" rel="noopener noreferrer">
+              <a
+                :href="label.discogs_url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <div class="grid-label-image-wrapper">
                   <img
                     v-if="getImageUrl(label)"
@@ -359,9 +510,7 @@
               </div>
             </div>
           </div>
-          <div v-else class="no-results">
-            No labels found
-          </div>
+          <div v-else class="no-results">No labels found</div>
 
           <!-- Pagination for Labels -->
           <div v-if="totalLabelsPages > 1" class="pagination">
@@ -392,199 +541,279 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { searchDiscogsUniversal, fetchVersionCountsBatch } from '../services/discogs.js'
-import FilterSidebar from '../components/FilterSidebar.vue'
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import {
+  searchDiscogsUniversal,
+  fetchVersionCountsBatch,
+  getMasterTopVersions,
+} from "../services/discogs.js";
+import FilterSidebar from "../components/FilterSidebar.vue";
 
 export default {
-  name: 'SearchResults',
+  name: "SearchResults",
   components: {
     FilterSidebar,
   },
   setup() {
-    const route = useRoute()
-    const router = useRouter()
-    const searchQuery = ref('')
-    const currentSearchTerm = ref('')
-    const releases = ref([])
-    const artists = ref([])
-    const labels = ref([])
-    const loading = ref(false)
-    const error = ref(null)
-    const hasSearched = ref(false)
-    const activeTab = ref('all')
-    const sortBy = ref('relevance')
-    const mobileSidebarOpen = ref(false)
-    const isMobileView = ref(false)
+    const route = useRoute();
+    const router = useRouter();
+    const searchQuery = ref("");
+    const currentSearchTerm = ref("");
+    const releases = ref([]);
+    const artists = ref([]);
+    const labels = ref([]);
+    const loading = ref(false);
+    const error = ref(null);
+    const hasSearched = ref(false);
+    const activeTab = ref("all");
+    const sortBy = ref("relevance");
+    const mobileSidebarOpen = ref(false);
+    const isMobileView = ref(false);
 
-    // Pagination - Client-side with caching
-    const itemsPerPage = 24
-    const cacheSize = 100 // Fetch 100 items at once for smooth pagination
-    const currentReleasesPage = ref(1)
-    const currentArtistsPage = ref(1)
-    const currentLabelsPage = ref(1)
-    const totalReleasesCount = ref(0)
-    const totalArtistsCount = ref(0)
-    const totalLabelsCount = ref(0)
+    // Pagination
+    const itemsPerPage = 24;
+    const cacheSize = 100; // Used for artists/labels caching (releases use per-page fetching)
+    const currentReleasesPage = ref(1);
+    const currentArtistsPage = ref(1);
+    const currentLabelsPage = ref(1);
+    const totalReleasesCount = ref(0);
+    const totalArtistsCount = ref(0);
+    const totalLabelsCount = ref(0);
 
     // Cache for fetched data
-    const releasesCache = ref([])
-    const artistsCache = ref([])
-    const labelsCache = ref([])
+    // releasesPageCache: Map of page number -> results array (for per-page caching)
+    const releasesPageCache = ref(new Map());
+    const releasesCache = ref([]); // Flattened cache for filtering/sorting
+    const artistsCache = ref([]);
+    const labelsCache = ref([]);
+
+    // Expanded versions state
+    const expandedReleaseId = ref(null);
+    const expandedVersions = ref([]);
+    const loadingVersions = ref(false);
 
     // Filter state
-    const showFilters = computed(() => activeTab.value !== 'all')
+    const showFilters = computed(() => activeTab.value !== "all");
     const activeFilters = ref({
       formats: [],
       countries: [],
       decades: [],
-    })
+    });
 
     const performSearch = async () => {
       if (searchQuery.value.trim()) {
         router.push({
-          path: '/results',
-          query: { q: searchQuery.value }
-        })
+          path: "/results",
+          query: { q: searchQuery.value },
+        });
       }
-    }
+    };
 
     // Aggregated filter options
-    const availableFormats = ref([])
-    const availableCountries = ref([])
+    const availableFormats = ref([]);
+    const availableCountries = ref([]);
 
     const aggregateFilterOptions = (releasesList) => {
       // Aggregate formats
-      const formatCounts = {}
-      releasesList.forEach(release => {
+      const formatCounts = {};
+      releasesList.forEach((release) => {
         if (release.format && Array.isArray(release.format)) {
-          release.format.forEach(format => {
-            formatCounts[format] = (formatCounts[format] || 0) + 1
-          })
+          release.format.forEach((format) => {
+            formatCounts[format] = (formatCounts[format] || 0) + 1;
+          });
         }
-      })
+      });
 
       // Aggregate countries
-      const countryCounts = {}
-      releasesList.forEach(release => {
+      const countryCounts = {};
+      releasesList.forEach((release) => {
         if (release.country) {
-          countryCounts[release.country] = (countryCounts[release.country] || 0) + 1
+          countryCounts[release.country] =
+            (countryCounts[release.country] || 0) + 1;
         }
-      })
+      });
 
       // Sort by count and get top options
       availableFormats.value = Object.entries(formatCounts)
         .sort((a, b) => b[1] - a[1])
-        .map(([format]) => format)
+        .map(([format]) => format);
 
       availableCountries.value = Object.entries(countryCounts)
         .sort((a, b) => b[1] - a[1])
-        .map(([country]) => country)
-    }
+        .map(([country]) => country);
+    };
 
     // Fetch initial results for "All" view
     const fetchResults = async (query) => {
-      if (!query) return
+      if (!query) return;
 
-      loading.value = true
-      error.value = null
-      hasSearched.value = true
-      currentSearchTerm.value = query
+      loading.value = true;
+      error.value = null;
+      hasSearched.value = true;
+      currentSearchTerm.value = query;
 
       try {
-        const data = await searchDiscogsUniversal(query, 100)
+        // Fetch masters, releases, artists, and labels in parallel
+        const [mastersData, releasesData, artistsData, labelsData] =
+          await Promise.all([
+            searchDiscogsUniversal(query, 50, 1, "master"),
+            searchDiscogsUniversal(query, 50, 1, "release"),
+            searchDiscogsUniversal(query, 50, 1, "artist"),
+            searchDiscogsUniversal(query, 50, 1, "label"),
+          ]);
 
-        // Separate results by type - only master releases for "All" view
-        releases.value = data.results.filter(item => item.type === 'master')
-        artists.value = data.results.filter(item => item.type === 'artist')
-        labels.value = data.results.filter(item => item.type === 'label')
+        // Filter releases to only include orphans (no master_id)
+        const orphanReleases = releasesData.results.filter((r) => !r.master_id);
+
+        // Merge masters and orphan releases
+        const mergedReleases = [...mastersData.results, ...orphanReleases];
+
+        // Remove duplicates
+        const seenIds = new Set();
+        releases.value = mergedReleases.filter((item) => {
+          if (seenIds.has(item.id)) return false;
+          seenIds.add(item.id);
+          return true;
+        });
+
+        artists.value = artistsData.results;
+        labels.value = labelsData.results;
 
         // Store total counts from API pagination
-        totalReleasesCount.value = data.total || 0
-        totalArtistsCount.value = data.total || 0
-        totalLabelsCount.value = data.total || 0
+        totalReleasesCount.value =
+          mastersData.total +
+          Math.floor(orphanReleases.length * (releasesData.total / 50));
+        totalArtistsCount.value = artistsData.total || 0;
+        totalLabelsCount.value = labelsData.total || 0;
 
         // Aggregate filter options from releases
-        aggregateFilterOptions(releases.value)
+        aggregateFilterOptions(releases.value);
 
         // Fetch version counts for releases in "All" view (first 10)
-        if (releases.value.length > 0) {
-          const versionCounts = await fetchVersionCountsBatch(releases.value.slice(0, 10))
-          releases.value = releases.value.map(release => {
-            if (versionCounts.has(release.id)) {
-              return { ...release, version_count: versionCounts.get(release.id) }
+        // Only fetch for masters (orphan releases have exactly 1 version)
+        const mastersToFetch = releases.value
+          .filter((r) => r.type === "master")
+          .slice(0, 10);
+        if (mastersToFetch.length > 0) {
+          const versionCounts = await fetchVersionCountsBatch(mastersToFetch);
+          releases.value = releases.value.map((release) => {
+            if (release.type === "master" && versionCounts.has(release.id)) {
+              return {
+                ...release,
+                version_count: versionCounts.get(release.id),
+              };
             }
-            return release
-          })
+            // Orphan releases have exactly 1 version
+            if (release.type === "release") {
+              return { ...release, version_count: 1 };
+            }
+            return release;
+          });
         }
       } catch (err) {
-        error.value = err.message || 'Failed to fetch search results'
-        console.error('Search error:', err)
+        error.value = err.message || "Failed to fetch search results";
+        console.error("Search error:", err);
       } finally {
-        loading.value = false
+        loading.value = false;
       }
-    }
+    };
 
-    // Fetch releases for a specific page with caching
+    // Fetch releases for a specific page - fetches both masters and orphan releases
     const fetchReleasesPage = async (page) => {
-      if (!currentSearchTerm.value) return
+      if (!currentSearchTerm.value) return;
 
-      // Calculate which cache batch we need (each batch = 100 items)
-      const cacheBatch = Math.ceil(page / 4) // 4 pages per 100 items
-
-      // Check if we already have this batch cached
-      const cacheEnd = cacheBatch * cacheSize
-
-      if (releasesCache.value.length < cacheEnd || page === 1) {
-        loading.value = true
-        error.value = null
-
-        try {
-          // Fetch 100 items (4 pages worth) at once, using type filter for accuracy
-          const data = await searchDiscogsUniversal(
-            currentSearchTerm.value,
-            cacheSize,
-            cacheBatch,
-            'master'
-          )
-
-          // Update cache
-          if (cacheBatch === 1) {
-            releasesCache.value = data.results
-          } else {
-            // Append to cache for subsequent batches
-            releasesCache.value = [...releasesCache.value, ...data.results]
-          }
-
-          totalReleasesCount.value = data.total || 0
-
-          // Update filter options from cached results
-          aggregateFilterOptions(releasesCache.value)
-        } catch (err) {
-          error.value = err.message || 'Failed to fetch releases'
-          console.error('Releases fetch error:', err)
-        } finally {
-          loading.value = false
-        }
+      // Check if page is already cached
+      if (releasesPageCache.value.has(page)) {
+        // Page already cached, no API call needed
+        return;
       }
 
-      // Load version counts only for the current page, not all 100 items
-      await loadVersionCounts()
-    }
+      loading.value = true;
+      error.value = null;
+
+      try {
+        // Fetch both masters and releases in parallel
+        const [mastersData, releasesData] = await Promise.all([
+          searchDiscogsUniversal(
+            currentSearchTerm.value,
+            itemsPerPage,
+            page,
+            "master"
+          ),
+          searchDiscogsUniversal(
+            currentSearchTerm.value,
+            itemsPerPage,
+            page,
+            "release"
+          ),
+        ]);
+
+        // Filter releases to only include orphans (no master_id)
+        const orphanReleases = releasesData.results.filter((r) => !r.master_id);
+
+        // Merge masters and orphan releases
+        // Masters come first, then orphan releases
+        const mergedResults = [...mastersData.results, ...orphanReleases];
+
+        // Remove duplicates (in case a release and its master both appear)
+        const seenIds = new Set();
+        const uniqueResults = mergedResults.filter((item) => {
+          if (seenIds.has(item.id)) return false;
+          seenIds.add(item.id);
+          return true;
+        });
+
+        // Cache this page's results
+        releasesPageCache.value.set(page, uniqueResults);
+
+        // Rebuild flattened cache from all cached pages (for filtering)
+        rebuildReleasesCache();
+
+        // Estimate total: masters total + estimated orphan releases
+        // Since we can't know exact orphan count, use masters total as base
+        const estimatedTotal =
+          mastersData.total +
+          Math.floor(
+            orphanReleases.length * (releasesData.total / itemsPerPage)
+          );
+        totalReleasesCount.value = Math.max(mastersData.total, estimatedTotal);
+
+        // Update filter options from all cached results
+        aggregateFilterOptions(releasesCache.value);
+      } catch (err) {
+        error.value = err.message || "Failed to fetch releases";
+        console.error("Releases fetch error:", err);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // Rebuild the flattened releases cache from all cached pages
+    const rebuildReleasesCache = () => {
+      const allResults = [];
+      // Sort pages and flatten
+      const sortedPages = Array.from(releasesPageCache.value.keys()).sort(
+        (a, b) => a - b
+      );
+      for (const pageNum of sortedPages) {
+        allResults.push(...releasesPageCache.value.get(pageNum));
+      }
+      releasesCache.value = allResults;
+    };
 
     // Fetch artists for a specific page with caching
     const fetchArtistsPage = async (page) => {
-      if (!currentSearchTerm.value) return
+      if (!currentSearchTerm.value) return;
 
       // Calculate which cache batch we need
-      const cacheBatch = Math.ceil(page / 4)
+      const cacheBatch = Math.ceil(page / 4);
 
-      const cacheEnd = cacheBatch * cacheSize
+      const cacheEnd = cacheBatch * cacheSize;
 
       if (artistsCache.value.length < cacheEnd || page === 1) {
-        loading.value = true
-        error.value = null
+        loading.value = true;
+        error.value = null;
 
         try {
           // Fetch 100 items at once using type filter
@@ -592,38 +821,38 @@ export default {
             currentSearchTerm.value,
             cacheSize,
             cacheBatch,
-            'artist'
-          )
+            "artist"
+          );
 
           // Update cache
           if (cacheBatch === 1) {
-            artistsCache.value = data.results
+            artistsCache.value = data.results;
           } else {
-            artistsCache.value = [...artistsCache.value, ...data.results]
+            artistsCache.value = [...artistsCache.value, ...data.results];
           }
 
-          totalArtistsCount.value = data.total || 0
+          totalArtistsCount.value = data.total || 0;
         } catch (err) {
-          error.value = err.message || 'Failed to fetch artists'
-          console.error('Artists fetch error:', err)
+          error.value = err.message || "Failed to fetch artists";
+          console.error("Artists fetch error:", err);
         } finally {
-          loading.value = false
+          loading.value = false;
         }
       }
-    }
+    };
 
     // Fetch labels for a specific page with caching
     const fetchLabelsPage = async (page) => {
-      if (!currentSearchTerm.value) return
+      if (!currentSearchTerm.value) return;
 
       // Calculate which cache batch we need
-      const cacheBatch = Math.ceil(page / 4)
+      const cacheBatch = Math.ceil(page / 4);
 
-      const cacheEnd = cacheBatch * cacheSize
+      const cacheEnd = cacheBatch * cacheSize;
 
       if (labelsCache.value.length < cacheEnd || page === 1) {
-        loading.value = true
-        error.value = null
+        loading.value = true;
+        error.value = null;
 
         try {
           // Fetch 100 items at once using type filter
@@ -631,305 +860,417 @@ export default {
             currentSearchTerm.value,
             cacheSize,
             cacheBatch,
-            'label'
-          )
+            "label"
+          );
 
           // Update cache
           if (cacheBatch === 1) {
-            labelsCache.value = data.results
+            labelsCache.value = data.results;
           } else {
-            labelsCache.value = [...labelsCache.value, ...data.results]
+            labelsCache.value = [...labelsCache.value, ...data.results];
           }
 
-          totalLabelsCount.value = data.total || 0
+          totalLabelsCount.value = data.total || 0;
         } catch (err) {
-          error.value = err.message || 'Failed to fetch labels'
-          console.error('Labels fetch error:', err)
+          error.value = err.message || "Failed to fetch labels";
+          console.error("Labels fetch error:", err);
         } finally {
-          loading.value = false
+          loading.value = false;
         }
       }
-    }
+    };
 
     const isPlaceholderImage = (url) => {
-      if (!url) return true
-      return url.includes('spacer.gif') || url.includes('placeholder')
-    }
+      if (!url) return true;
+      return url.includes("spacer.gif") || url.includes("placeholder");
+    };
 
     const handleImageError = (e) => {
-      showPlaceholder(e.target)
-    }
+      showPlaceholder(e.target);
+    };
 
     const showPlaceholder = (imgElement) => {
-      imgElement.style.display = 'none'
-      const parent = imgElement.parentElement
-      if (parent && !parent.querySelector('.image-placeholder')) {
-        const placeholder = document.createElement('div')
-        placeholder.className = 'image-placeholder'
+      imgElement.style.display = "none";
+      const parent = imgElement.parentElement;
+      if (parent && !parent.querySelector(".image-placeholder")) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "image-placeholder";
 
         // Determine if it's a release, artist, or label based on parent classes
-        if (parent.classList.contains('album-cover-wrapper') ||
-            parent.classList.contains('grid-album-cover-wrapper')) {
-          placeholder.innerHTML = '<span class="material-icons">album</span>'
-        } else if (parent.classList.contains('artist-image') ||
-                   parent.classList.contains('grid-artist-image-wrapper')) {
-          placeholder.innerHTML = '<span class="material-icons">person</span>'
+        if (
+          parent.classList.contains("album-cover-wrapper") ||
+          parent.classList.contains("grid-album-cover-wrapper")
+        ) {
+          placeholder.innerHTML = '<span class="material-icons">album</span>';
+        } else if (
+          parent.classList.contains("artist-image") ||
+          parent.classList.contains("grid-artist-image-wrapper")
+        ) {
+          placeholder.innerHTML = '<span class="material-icons">person</span>';
         } else {
-          placeholder.innerHTML = '<span class="material-icons">label</span>'
+          placeholder.innerHTML = '<span class="material-icons">label</span>';
         }
 
-        parent.appendChild(placeholder)
+        parent.appendChild(placeholder);
       }
-    }
+    };
 
     const getImageUrl = (item) => {
-      const url = item.cover_image || item.thumb || ''
-      return isPlaceholderImage(url) ? '' : url
-    }
+      const url = item.cover_image || item.thumb || "";
+      return isPlaceholderImage(url) ? "" : url;
+    };
 
     const setTab = async (tab) => {
-      activeTab.value = tab
+      activeTab.value = tab;
       // Reset pagination when changing tabs
-      currentReleasesPage.value = 1
-      currentArtistsPage.value = 1
-      currentLabelsPage.value = 1
+      currentReleasesPage.value = 1;
+      currentArtistsPage.value = 1;
+      currentLabelsPage.value = 1;
 
       // Fetch data for the selected tab if cache is empty
-      if (tab === 'releases' && releasesCache.value.length === 0) {
-        // Fetch first 100 releases (4 pages worth) but don't load version counts yet
-        await fetchReleasesPage(1)
-      } else if (tab === 'releases') {
+      if (tab === "releases" && !releasesPageCache.value.has(1)) {
+        await fetchReleasesPage(1);
+      } else if (tab === "releases") {
         // If cache exists, load version counts only for current page (24 items)
-        await loadVersionCounts()
-      } else if (tab === 'artists' && artistsCache.value.length === 0) {
-        fetchArtistsPage(1)
-      } else if (tab === 'labels' && labelsCache.value.length === 0) {
-        fetchLabelsPage(1)
+        await loadVersionCounts();
+      } else if (tab === "artists" && artistsCache.value.length === 0) {
+        fetchArtistsPage(1);
+      } else if (tab === "labels" && labelsCache.value.length === 0) {
+        fetchLabelsPage(1);
       }
-    }
+    };
 
     const handleFilterChange = (filters) => {
-      activeFilters.value = filters
+      activeFilters.value = filters;
       // Reset pagination when filters change
-      currentReleasesPage.value = 1
-      currentArtistsPage.value = 1
-      currentLabelsPage.value = 1
-    }
+      currentReleasesPage.value = 1;
+      currentArtistsPage.value = 1;
+      currentLabelsPage.value = 1;
+    };
+
+    // Toggle versions panel for a release
+    const toggleVersions = async (release) => {
+      // If clicking the same release, close it
+      if (expandedReleaseId.value === release.id) {
+        expandedReleaseId.value = null;
+        expandedVersions.value = [];
+        return;
+      }
+
+      // Open new release and fetch versions
+      expandedReleaseId.value = release.id;
+      expandedVersions.value = [];
+      loadingVersions.value = true;
+
+      try {
+        const versions = await getMasterTopVersions(release.id, 5);
+        expandedVersions.value = versions;
+      } catch (err) {
+        console.error("Failed to fetch versions:", err);
+        expandedVersions.value = [];
+      } finally {
+        loadingVersions.value = false;
+      }
+    };
 
     // Filtered results based on active filters (client-side filtering)
     const filteredReleases = computed(() => {
-      let results = [...releasesCache.value]
+      let results = [...releasesCache.value];
 
       // Apply format filter
       if (activeFilters.value.formats.length > 0) {
-        results = results.filter(release => {
-          if (!release.format || release.format.length === 0) return false
-          return activeFilters.value.formats.some(filter =>
-            release.format.some(f => f.toLowerCase().includes(filter.toLowerCase()))
-          )
-        })
+        results = results.filter((release) => {
+          if (!release.format || release.format.length === 0) return false;
+          return activeFilters.value.formats.some((filter) =>
+            release.format.some((f) =>
+              f.toLowerCase().includes(filter.toLowerCase())
+            )
+          );
+        });
       }
 
       // Apply country filter
       if (activeFilters.value.countries.length > 0) {
-        results = results.filter(release => {
-          if (!release.country) return false
-          return activeFilters.value.countries.includes(release.country)
-        })
+        results = results.filter((release) => {
+          if (!release.country) return false;
+          return activeFilters.value.countries.includes(release.country);
+        });
       }
 
       // Apply decade filter
       if (activeFilters.value.decades.length > 0) {
-        results = results.filter(release => {
-          if (!release.year) return false
-          const yearNum = parseInt(release.year)
-          return activeFilters.value.decades.some(decade => {
-            const decadeNum = parseInt(decade)
-            return yearNum >= decadeNum && yearNum < decadeNum + 10
-          })
-        })
+        results = results.filter((release) => {
+          if (!release.year) return false;
+          const yearNum = parseInt(release.year);
+          return activeFilters.value.decades.some((decade) => {
+            const decadeNum = parseInt(decade);
+            return yearNum >= decadeNum && yearNum < decadeNum + 10;
+          });
+        });
       }
 
       // Apply sorting
-      if (sortBy.value === 'year-desc') {
-        results.sort((a, b) => (b.year || 0) - (a.year || 0))
-      } else if (sortBy.value === 'year-asc') {
-        results.sort((a, b) => (a.year || 0) - (b.year || 0))
-      } else if (sortBy.value === 'title') {
-        results.sort((a, b) => a.title.localeCompare(b.title))
+      if (sortBy.value === "year-desc") {
+        results.sort((a, b) => (b.year || 0) - (a.year || 0));
+      } else if (sortBy.value === "year-asc") {
+        results.sort((a, b) => (a.year || 0) - (b.year || 0));
+      } else if (sortBy.value === "title") {
+        results.sort((a, b) => a.title.localeCompare(b.title));
       }
 
-      return results
-    })
+      return results;
+    });
 
     // Watch for page changes and fetch new data if needed
     watch(currentReleasesPage, async (newPage) => {
-      if (activeTab.value === 'releases') {
+      if (activeTab.value === "releases") {
         // Fetch the batch if not cached, which will also load version counts
-        await fetchReleasesPage(newPage)
+        await fetchReleasesPage(newPage);
       }
-    })
+    });
 
     watch(currentArtistsPage, (newPage) => {
-      if (activeTab.value === 'artists') {
-        fetchArtistsPage(newPage)
+      if (activeTab.value === "artists") {
+        fetchArtistsPage(newPage);
       }
-    })
+    });
 
     watch(currentLabelsPage, (newPage) => {
-      if (activeTab.value === 'labels') {
-        fetchLabelsPage(newPage)
+      if (activeTab.value === "labels") {
+        fetchLabelsPage(newPage);
       }
-    })
+    });
 
     const filteredArtists = computed(() => {
-      let results = [...artistsCache.value]
+      let results = [...artistsCache.value];
 
-      if (sortBy.value === 'title') {
-        results.sort((a, b) => a.title.localeCompare(b.title))
+      if (sortBy.value === "title") {
+        results.sort((a, b) => a.title.localeCompare(b.title));
       }
 
-      return results
-    })
+      return results;
+    });
 
     const filteredLabels = computed(() => {
-      let results = [...labelsCache.value]
+      let results = [...labelsCache.value];
 
-      if (sortBy.value === 'title') {
-        results.sort((a, b) => a.title.localeCompare(b.title))
+      if (sortBy.value === "title") {
+        results.sort((a, b) => a.title.localeCompare(b.title));
       }
 
-      return results
-    })
+      return results;
+    });
 
-    // Client-side pagination from cache
+    // Client-side pagination from page cache
     const paginatedReleases = computed(() => {
-      const filtered = filteredReleases.value
-      const startIndex = (currentReleasesPage.value - 1) * itemsPerPage
-      const endIndex = startIndex + itemsPerPage
-      return filtered.slice(startIndex, endIndex)
-    })
+      // Get results for the current page from the page cache
+      const pageResults =
+        releasesPageCache.value.get(currentReleasesPage.value) || [];
+
+      // Apply filters to current page results
+      let results = [...pageResults];
+
+      // Apply format filter
+      if (activeFilters.value.formats.length > 0) {
+        results = results.filter((release) => {
+          if (!release.format || release.format.length === 0) return false;
+          return activeFilters.value.formats.some((filter) =>
+            release.format.some((f) =>
+              f.toLowerCase().includes(filter.toLowerCase())
+            )
+          );
+        });
+      }
+
+      // Apply country filter
+      if (activeFilters.value.countries.length > 0) {
+        results = results.filter((release) => {
+          if (!release.country) return false;
+          return activeFilters.value.countries.includes(release.country);
+        });
+      }
+
+      // Apply decade filter
+      if (activeFilters.value.decades.length > 0) {
+        results = results.filter((release) => {
+          if (!release.year) return false;
+          const yearNum = parseInt(release.year);
+          return activeFilters.value.decades.some((decade) => {
+            const decadeNum = parseInt(decade);
+            return yearNum >= decadeNum && yearNum < decadeNum + 10;
+          });
+        });
+      }
+
+      // Apply sorting
+      if (sortBy.value === "year-desc") {
+        results.sort((a, b) => (b.year || 0) - (a.year || 0));
+      } else if (sortBy.value === "year-asc") {
+        results.sort((a, b) => (a.year || 0) - (b.year || 0));
+      } else if (sortBy.value === "title") {
+        results.sort((a, b) => a.title.localeCompare(b.title));
+      }
+
+      return results;
+    });
 
     // Fetch version counts for currently visible releases
     const loadVersionCounts = async () => {
-      const visibleReleases = paginatedReleases.value
-      if (visibleReleases.length === 0) return
+      const currentPage = currentReleasesPage.value;
+      const pageResults = releasesPageCache.value.get(currentPage);
+      if (!pageResults || pageResults.length === 0) return;
+
+      // Check if version counts already loaded for this page
+      const needsVersionCounts = pageResults.some(
+        (r) => r.type === "master" && r.version_count === null
+      );
+      if (!needsVersionCounts) return;
 
       try {
-        const versionCounts = await fetchVersionCountsBatch(visibleReleases)
+        // Only fetch version counts for masters, orphan releases have exactly 1 version
+        const mastersToFetch = pageResults.filter(
+          (r) => r.type === "master" && r.version_count === null
+        );
+        const versionCounts =
+          mastersToFetch.length > 0
+            ? await fetchVersionCountsBatch(mastersToFetch)
+            : new Map();
 
-        // Update the cache with version counts
-        releasesCache.value = releasesCache.value.map(release => {
-          if (versionCounts.has(release.id)) {
-            return { ...release, version_count: versionCounts.get(release.id) }
+        // Update the page cache with version counts
+        const updatedPageResults = pageResults.map((release) => {
+          if (release.type === "master" && versionCounts.has(release.id)) {
+            return { ...release, version_count: versionCounts.get(release.id) };
           }
-          return release
-        })
+          // Orphan releases have exactly 1 version
+          if (release.type === "release" && !release.version_count) {
+            return { ...release, version_count: 1 };
+          }
+          return release;
+        });
+
+        // Update the page cache
+        releasesPageCache.value.set(currentPage, updatedPageResults);
+
+        // Rebuild flattened cache
+        rebuildReleasesCache();
       } catch (err) {
-        console.error('Failed to fetch version counts:', err)
+        console.error("Failed to fetch version counts:", err);
       }
-    }
+    };
 
     const paginatedArtists = computed(() => {
-      const filtered = filteredArtists.value
-      const startIndex = (currentArtistsPage.value - 1) * itemsPerPage
-      const endIndex = startIndex + itemsPerPage
-      return filtered.slice(startIndex, endIndex)
-    })
+      const filtered = filteredArtists.value;
+      const startIndex = (currentArtistsPage.value - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return filtered.slice(startIndex, endIndex);
+    });
 
     const paginatedLabels = computed(() => {
-      const filtered = filteredLabels.value
-      const startIndex = (currentLabelsPage.value - 1) * itemsPerPage
-      const endIndex = startIndex + itemsPerPage
-      return filtered.slice(startIndex, endIndex)
-    })
+      const filtered = filteredLabels.value;
+      const startIndex = (currentLabelsPage.value - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return filtered.slice(startIndex, endIndex);
+    });
 
     // Total pages based on filtered results or API total count
     const totalReleasesPages = computed(() => {
       // If filtering is active, calculate based on filtered results
-      if (activeFilters.value.formats.length > 0 ||
-          activeFilters.value.countries.length > 0 ||
-          activeFilters.value.decades.length > 0) {
-        return Math.ceil(filteredReleases.value.length / itemsPerPage)
+      if (
+        activeFilters.value.formats.length > 0 ||
+        activeFilters.value.countries.length > 0 ||
+        activeFilters.value.decades.length > 0
+      ) {
+        return Math.ceil(filteredReleases.value.length / itemsPerPage);
       }
       // Otherwise, use total count from API
-      return Math.ceil(totalReleasesCount.value / itemsPerPage)
-    })
+      return Math.ceil(totalReleasesCount.value / itemsPerPage);
+    });
 
     const totalArtistsPages = computed(() => {
       // Use filtered count if sorting is applied, otherwise use API total
-      if (filteredArtists.value.length > 0 && filteredArtists.value.length < totalArtistsCount.value) {
-        return Math.ceil(filteredArtists.value.length / itemsPerPage)
+      if (
+        filteredArtists.value.length > 0 &&
+        filteredArtists.value.length < totalArtistsCount.value
+      ) {
+        return Math.ceil(filteredArtists.value.length / itemsPerPage);
       }
-      return Math.ceil(totalArtistsCount.value / itemsPerPage)
-    })
+      return Math.ceil(totalArtistsCount.value / itemsPerPage);
+    });
 
     const totalLabelsPages = computed(() => {
       // Use filtered count if sorting is applied, otherwise use API total
-      if (filteredLabels.value.length > 0 && filteredLabels.value.length < totalLabelsCount.value) {
-        return Math.ceil(filteredLabels.value.length / itemsPerPage)
+      if (
+        filteredLabels.value.length > 0 &&
+        filteredLabels.value.length < totalLabelsCount.value
+      ) {
+        return Math.ceil(filteredLabels.value.length / itemsPerPage);
       }
-      return Math.ceil(totalLabelsCount.value / itemsPerPage)
-    })
+      return Math.ceil(totalLabelsCount.value / itemsPerPage);
+    });
 
     // Mobile responsive handlers
     const checkMobileView = () => {
-      isMobileView.value = window.innerWidth <= 1024
+      isMobileView.value = window.innerWidth <= 1024;
       if (!isMobileView.value) {
-        mobileSidebarOpen.value = false
+        mobileSidebarOpen.value = false;
       }
-    }
+    };
 
     const toggleMobileSidebar = () => {
-      mobileSidebarOpen.value = !mobileSidebarOpen.value
-    }
+      mobileSidebarOpen.value = !mobileSidebarOpen.value;
+    };
 
     const closeSidebar = () => {
-      mobileSidebarOpen.value = false
-    }
+      mobileSidebarOpen.value = false;
+    };
 
     onMounted(() => {
-      checkMobileView()
-      window.addEventListener('resize', checkMobileView)
-    })
+      checkMobileView();
+      window.addEventListener("resize", checkMobileView);
+    });
 
     onUnmounted(() => {
-      window.removeEventListener('resize', checkMobileView)
-    })
+      window.removeEventListener("resize", checkMobileView);
+    });
 
     // Watch for route query changes
-    watch(() => route.query.q, async (newQuery, oldQuery) => {
-      if (newQuery && newQuery !== oldQuery) {
-        searchQuery.value = newQuery
-        currentSearchTerm.value = newQuery
-        // Clear all caches on new search
-        releasesCache.value = []
-        artistsCache.value = []
-        labelsCache.value = []
-        // Reset pagination
-        currentReleasesPage.value = 1
-        currentArtistsPage.value = 1
-        currentLabelsPage.value = 1
+    watch(
+      () => route.query.q,
+      async (newQuery, oldQuery) => {
+        if (newQuery && newQuery !== oldQuery) {
+          searchQuery.value = newQuery;
+          currentSearchTerm.value = newQuery;
+          // Clear all caches on new search
+          releasesPageCache.value = new Map();
+          releasesCache.value = [];
+          artistsCache.value = [];
+          labelsCache.value = [];
+          // Reset pagination
+          currentReleasesPage.value = 1;
+          currentArtistsPage.value = 1;
+          currentLabelsPage.value = 1;
 
-        // Fetch results for "All" view first
-        await fetchResults(newQuery)
+          // Fetch results for "All" view first
+          await fetchResults(newQuery);
 
-        // If on a filtered tab, fetch that specific data
-        if (activeTab.value === 'releases') {
-          // Fetch first 100 releases (includes version counts for first page)
-          await fetchReleasesPage(1)
-        } else if (activeTab.value === 'artists') {
-          await fetchArtistsPage(1)
-        } else if (activeTab.value === 'labels') {
-          await fetchLabelsPage(1)
+          // If on a filtered tab, fetch that specific data
+          if (activeTab.value === "releases") {
+            // Fetch first 100 releases (includes version counts for first page)
+            await fetchReleasesPage(1);
+          } else if (activeTab.value === "artists") {
+            await fetchArtistsPage(1);
+          } else if (activeTab.value === "labels") {
+            await fetchLabelsPage(1);
+          }
+
+          // Keep the current tab unless it's the first search
+          if (!oldQuery) {
+            activeTab.value = "all";
+          }
         }
-
-        // Keep the current tab unless it's the first search
-        if (!oldQuery) {
-          activeTab.value = 'all'
-        }
-      }
-    }, { immediate: true })
+      },
+      { immediate: true }
+    );
 
     return {
       searchQuery,
@@ -958,15 +1299,13 @@ export default {
       handleImageError,
       setTab,
       handleFilterChange,
-      mobileSidebarOpen,
-      isMobileView,
-      toggleMobileSidebar,
-      closeSidebar,
-      isPlaceholderImage,
-      getImageUrl,
-    }
-  }
-}
+      toggleVersions,
+      expandedReleaseId,
+      expandedVersions,
+      loadingVersions,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -1029,7 +1368,7 @@ export default {
 .search-wrapper {
   position: relative;
   background: #ffffff;
-  border: 1px solid #919191;
+  border: 2px solid #000000;
   border-radius: 20px;
   box-sizing: border-box;
   display: flex;
@@ -1042,9 +1381,9 @@ export default {
 }
 
 .search-field {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
-  color: #717171;
+  color: #000000;
   border: none;
   outline: none;
   background: transparent;
@@ -1060,9 +1399,10 @@ export default {
 
 .search-icon {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  font-size: 18px;
   color: #717171;
+  cursor: pointer;
+  font-variation-settings: "wght" 400;
 }
 
 /* Tabs */
@@ -1079,7 +1419,7 @@ export default {
 }
 
 .tab-btn {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: #717171;
@@ -1109,14 +1449,14 @@ export default {
 }
 
 .sort-label {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
 }
 
 .sort-select {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   color: #000000;
   background: #ffffff;
@@ -1136,7 +1476,7 @@ export default {
 .error,
 .no-results {
   text-align: center;
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 1.2rem;
   color: #717171;
   padding: 40px 20px;
@@ -1159,7 +1499,7 @@ export default {
 }
 
 .section-title {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 2rem;
   font-weight: 700;
   color: #000000;
@@ -1167,7 +1507,7 @@ export default {
 }
 
 .view-all-link {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #717171;
@@ -1288,7 +1628,7 @@ a .image-placeholder {
 }
 
 .album-title {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1302,13 +1642,13 @@ a .image-placeholder {
 }
 
 .album-meta {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 12px;
   color: #717171;
 }
 
 .album-versions-link {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1357,7 +1697,7 @@ a .image-placeholder {
 }
 
 .artist-name {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1397,7 +1737,7 @@ a .image-placeholder {
 }
 
 .label-name {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1486,7 +1826,7 @@ a .image-placeholder {
 .grid-album-title,
 .grid-artist-name,
 .grid-label-name {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1499,7 +1839,7 @@ a .image-placeholder {
 }
 
 .grid-album-meta {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 12px;
   color: #717171;
   display: flex;
@@ -1507,13 +1847,13 @@ a .image-placeholder {
 }
 
 .grid-album-versions {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 12px;
   color: #717171;
 }
 
 .grid-album-versions-link {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #000000;
@@ -1530,6 +1870,138 @@ a .image-placeholder {
   opacity: 0.7;
 }
 
+/* Expandable Versions Panel */
+.versions-panel {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  padding: 0 16px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out,
+    margin-top 0.3s ease-out, padding 0.3s ease-out, border-color 0.3s ease-out;
+}
+
+.versions-panel.open {
+  max-height: 200px;
+  opacity: 1;
+  margin-top: 16px;
+  padding: 16px;
+  border-color: #e0e0e0;
+}
+
+.versions-loading,
+.versions-empty {
+  font-family: "Inria Sans", sans-serif;
+  font-size: 14px;
+  color: #717171;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.versions-list {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #cccccc transparent;
+}
+
+.versions-list::-webkit-scrollbar {
+  height: 6px;
+}
+
+.versions-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.versions-list::-webkit-scrollbar-thumb {
+  background: #cccccc;
+  border-radius: 3px;
+}
+
+.version-item {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  width: 90px;
+  transition: transform 0.2s;
+}
+
+.version-item:hover {
+  transform: translateY(-2px);
+}
+
+.version-thumb {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: #d9d9d9;
+}
+
+.version-info {
+  text-align: center;
+  width: 100%;
+}
+
+.version-format {
+  font-family: "Inria Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.version-year {
+  font-family: "Inria Sans", sans-serif;
+  font-size: 11px;
+  color: #717171;
+}
+
+.version-country {
+  font-family: "Inria Sans", sans-serif;
+  font-size: 10px;
+  color: #919191;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* All View Versions Panel - within album cards */
+.all-view-versions {
+  width: 240px;
+  padding: 0 8px;
+}
+
+.all-view-versions.open {
+  padding: 12px 8px;
+}
+
+.all-view-versions .versions-list {
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.all-view-versions .version-item {
+  width: 70px;
+}
+
+.all-view-versions .version-thumb {
+  width: 70px;
+  height: 70px;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
@@ -1540,7 +2012,7 @@ a .image-placeholder {
 }
 
 .pagination-btn {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #ffffff;
@@ -1567,7 +2039,7 @@ a .image-placeholder {
 }
 
 .pagination-info {
-  font-family: 'Inria Sans', sans-serif;
+  font-family: "Inria Sans", sans-serif;
   font-size: 16px;
   color: #000000;
 }

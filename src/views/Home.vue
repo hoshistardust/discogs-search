@@ -20,118 +20,56 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <!-- Album/Artist/Label Search Section -->
-      <div class="search-section">
-        <p class="section-label">
-          Search for listings of Albums, Artists, or Music Labels
-        </p>
-        <div class="search-wrapper">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search for Albums, Artists, or Labels"
-            class="search-field"
-            @keyup.enter="performSearch"
-          />
-          <svg
-            class="search-icon"
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            @click="performSearch"
-          >
-            <path
-              d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+      <!-- Two-column search layout -->
+      <div class="search-columns">
+        <!-- Album/Artist/Label Search Section -->
+        <div class="search-section">
+          <p class="section-label">
+            Search for listings of Releases, Artists, or Music Labels
+          </p>
+          <div class="search-wrapper">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search for Releases, Artists, or Labels"
+              class="search-field"
+              @keyup.enter="performSearch"
             />
-            <path
-              d="M14 14L11.1 11.1"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <p class="divider">- OR -</p>
-
-      <!-- Genre/Style Discovery Section -->
-      <div class="discovery-section">
-        <p class="section-label">
-          Discover new music based on genres and styles
-        </p>
-
-        <div class="discovery-inputs">
-          <!-- Genres Dropdown -->
-          <div class="input-group">
-            <label class="input-label">Choose genres</label>
-            <div class="dropdown-wrapper genre-dropdown" @click="openGenresPopup">
-              <div class="dropdown-display">
-                <div v-if="selectedGenres.length === 0" class="placeholder">
-                  Genres
-                </div>
-                <div v-else class="tags-container">
-                  <span
-                    v-for="genre in selectedGenres"
-                    :key="genre"
-                    class="tag"
-                  >
-                    {{ genre }}
-                    <button
-                      class="tag-remove"
-                      @click.stop="removeGenre(genre)"
-                      aria-label="Remove genre"
-                    >
-                      ×
-                    </button>
-                  </span>
-                </div>
-              </div>
-              <svg
-                class="dropdown-icon"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <path
-                  d="M6 9L12 15L18 9"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
+            <span class="material-symbols-outlined search-icon" @click="performSearch">
+              search
+            </span>
           </div>
+        </div>
 
-          <!-- Styles Dropdown -->
-          <div class="input-group">
-            <label class="input-label">Choose styles</label>
-            <div class="dropdown-row">
-              <div class="dropdown-wrapper style-dropdown" @click="openStylesPopup">
+        <!-- Vertical Divider -->
+        <div class="vertical-divider"></div>
+
+        <!-- Genre/Style Discovery Section -->
+        <div class="discovery-section">
+          <p class="section-label">
+            Discover new music based on genres and styles
+          </p>
+
+          <div class="discovery-inputs">
+            <!-- Genres Dropdown -->
+            <div class="input-group">
+              <label class="input-label">Choose genres</label>
+              <div class="dropdown-wrapper genre-dropdown" @click="openGenresPopup">
                 <div class="dropdown-display">
-                  <div v-if="selectedStyles.length === 0" class="placeholder">
-                    Styles
+                  <div v-if="selectedGenres.length === 0" class="placeholder">
+                    Genres
                   </div>
                   <div v-else class="tags-container">
                     <span
-                      v-for="style in selectedStyles"
-                      :key="style"
+                      v-for="genre in selectedGenres"
+                      :key="genre"
                       class="tag"
                     >
-                      {{ style }}
+                      {{ genre }}
                       <button
                         class="tag-remove"
-                        @click.stop="removeStyle(style)"
-                        aria-label="Remove style"
+                        @click.stop="removeGenre(genre)"
+                        aria-label="Remove genre"
                       >
                         ×
                       </button>
@@ -154,36 +92,65 @@
                   />
                 </svg>
               </div>
-              <button
-                class="discover-button"
-                @click="performDiscoverySearch"
-                :disabled="selectedGenres.length === 0 && selectedStyles.length === 0"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="#FFFFFF"
+            </div>
+
+            <!-- Styles Dropdown -->
+            <div class="input-group">
+              <label class="input-label">Choose styles</label>
+              <div class="dropdown-row">
+                <div class="dropdown-wrapper style-dropdown" @click="openStylesPopup">
+                  <div class="dropdown-display">
+                    <div v-if="selectedStyles.length === 0" class="placeholder">
+                      Styles
+                    </div>
+                    <div v-else class="tags-container">
+                      <span
+                        v-for="style in selectedStyles"
+                        :key="style"
+                        class="tag"
+                      >
+                        {{ style }}
+                        <button
+                          class="tag-remove"
+                          @click.stop="removeStyle(style)"
+                          aria-label="Remove style"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                  <svg
+                    class="dropdown-icon"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M6 9L12 15L18 9"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <button
+                  class="discover-button"
+                  @click="performDiscoverySearch"
+                  :disabled="selectedGenres.length === 0 && selectedStyles.length === 0"
                 >
-                  <path
-                    d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M14 14L11.1 11.1"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </button>
+                  <span class="material-symbols-outlined">search</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Horizontal Divider -->
+      <div class="horizontal-divider"></div>
 
       <!-- Popular Albums Section -->
       <div class="popular-section">
@@ -444,28 +411,39 @@ export default {
 
 /* Main Content */
 .main-content {
-  padding: 60px 80px 80px 200px;
+  padding: 40px 80px 80px 200px;
   max-width: 1440px;
   margin: 0 auto;
   position: relative;
 }
 
+/* Two-column search layout */
+.search-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 60px;
+  margin-bottom: 40px;
+}
+
 /* Search Section */
 .search-section {
-  margin-bottom: 40px;
+  flex: 0 0 auto;
+  width: 413px;
 }
 
 .section-label {
   font-family: "Inria Sans", sans-serif;
   font-size: 24px;
+  font-weight: 700;
   color: #000000;
-  margin: 0 0 16px 0;
+  margin: 0 0 24px 0;
+  line-height: 1.3;
 }
 
 .search-wrapper {
   position: relative;
   background: #ffffff;
-  border: 1px solid #919191;
+  border: 2px solid #000000;
   border-radius: 20px;
   box-sizing: border-box;
   display: flex;
@@ -473,7 +451,6 @@ export default {
   justify-content: space-between;
   height: 44px;
   padding: 14px 16px;
-  max-width: 794px;
   width: 100%;
 }
 
@@ -496,31 +473,39 @@ export default {
 
 .search-icon {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  font-size: 18px;
   color: #717171;
   cursor: pointer;
+  font-variation-settings: 'wght' 400;
 }
 
-/* Divider */
-.divider {
-  font-family: "Inria Sans", sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  color: #000000;
-  margin: 40px 0;
+/* Vertical Divider */
+.vertical-divider {
+  width: 2px;
+  background-color: #000000;
+  align-self: stretch;
+  min-height: 200px;
+  flex-shrink: 0;
+}
+
+/* Horizontal Divider */
+.horizontal-divider {
+  width: 100%;
+  height: 2px;
+  background-color: #000000;
+  margin-bottom: 40px;
 }
 
 /* Discovery Section */
 .discovery-section {
-  margin-bottom: 60px;
+  flex: 1;
+  max-width: 500px;
 }
 
 .discovery-inputs {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 794px;
 }
 
 .input-group {
@@ -544,7 +529,7 @@ export default {
 
 .dropdown-wrapper {
   background: #ffffff;
-  border: 1px solid #919191;
+  border: 2px solid #000000;
   border-radius: 20px;
   box-sizing: border-box;
   display: flex;
@@ -557,13 +542,15 @@ export default {
 }
 
 .dropdown-wrapper:hover {
-  border-color: #000000;
+  border-color: #333333;
 }
 
-.genre-dropdown,
+.genre-dropdown {
+  width: 100%;
+}
+
 .style-dropdown {
-  width: 430px;
-  max-width: 100%;
+  flex: 1;
 }
 
 .dropdown-display {
@@ -793,6 +780,20 @@ export default {
 }
 
 /* Responsive Design */
+@media (max-width: 1200px) {
+  .search-columns {
+    gap: 40px;
+  }
+
+  .search-section {
+    width: 350px;
+  }
+
+  .discovery-section {
+    max-width: 400px;
+  }
+}
+
 @media (max-width: 1024px) {
   .hero-section {
     padding: 60px 40px 60px 100px;
@@ -804,6 +805,28 @@ export default {
 
   .main-content {
     padding: 40px 40px 60px 100px;
+  }
+
+  .search-columns {
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .search-section {
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .discovery-section {
+    max-width: 500px;
+  }
+
+  .vertical-divider {
+    display: none;
+  }
+
+  .horizontal-divider {
+    margin-top: 0;
   }
 
   .albums-container,
@@ -847,15 +870,6 @@ export default {
 
   .section-label {
     font-size: 20px;
-  }
-
-  .divider {
-    font-size: 24px;
-    margin: 30px 0;
-  }
-
-  .discovery-inputs {
-    max-width: 100%;
   }
 
   .dropdown-row {

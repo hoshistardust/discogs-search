@@ -91,6 +91,12 @@ export async function searchDiscogsUniversal(query, perPage = 20, page = 1, type
           // Version count will be fetched separately for visible items only
           result.version_count = null
 
+          // Add master_id for releases (used to identify orphan releases)
+          if (item.type === 'release') {
+            result.master_id = item.master_id || null
+            result.master_url = item.master_url || null
+          }
+
           // Add artist-specific data
           if (item.type === 'artist') {
             result.aliases = item.alias || []
@@ -191,6 +197,69 @@ export async function getMasterVersionCount(masterId) {
   } catch (error) {
     console.error('Error fetching master version count:', error)
     return null
+  }
+}
+
+/**
+ * Get top versions (releases) for a master release sorted by popularity
+ * @param {number} masterId - The Discogs master release ID
+ * @param {number} limit - Number of versions to return (default 5)
+ * @returns {Promise<Array>} Array of version objects with cover, year, format, etc.
+ */
+export async function getMasterTopVersions(masterId, limit = 5) {
+  try {
+    const url = new URL(`${DISCOGS_API_BASE}/masters/${masterId}/versions`)
+    url.searchParams.append('key', CONSUMER_KEY)
+    url.searchParams.append('secret', CONSUMER_SECRET)
+    url.searchParams.append('per_page', '50') // Fetch more to sort by stats
+    url.searchParams.append('sort', 'released')
+    url.searchParams.append('sort_order', 'desc')
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'DiscogsTopAlbums/1.0'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch master versions: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (!data.versions || data.versions.length === 0) {
+      return []
+    }
+
+    // Sort by stats.community.in_collection (most owned) descending
+    const sortedVersions = data.versions
+      .sort((a, b) => {
+        const aStats = (a.stats?.community?.in_collection || 0) + (a.stats?.community?.in_wantlist || 0)
+        const bStats = (b.stats?.community?.in_collection || 0) + (b.stats?.community?.in_wantlist || 0)
+        return bStats - aStats
+      })
+      .slice(0, limit)
+
+    // Map to simplified format
+    return sortedVersions.map(version => ({
+      id: version.id,
+      title: version.title,
+      label: version.label,
+      catno: version.catno,
+      country: version.country,
+      year: version.released?.split('-')[0] || 'Unknown',
+      format: version.format || 'Unknown',
+      thumb: version.thumb || null,
+      stats: {
+        have: version.stats?.community?.in_collection || 0,
+        want: version.stats?.community?.in_wantlist || 0
+      },
+      discogs_url: `https://www.discogs.com/release/${version.id}`
+    }))
+  } catch (error) {
+    console.error('Error fetching master top versions:', error)
+    return []
   }
 }
 
