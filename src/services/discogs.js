@@ -332,7 +332,7 @@ export async function getReleaseDetails(releaseId) {
 
 /**
  * Get top albums from 2025 by community engagement
- * @returns {Promise<Array>} Array of top 5 albums sorted by engagement
+ * @returns {Promise<Array>} Array of top 100 albums sorted by engagement
  */
 export async function getTop2025Albums() {
   try {
@@ -341,7 +341,7 @@ export async function getTop2025Albums() {
     searchUrl.searchParams.append('secret', CONSUMER_SECRET)
     searchUrl.searchParams.append('year', '2025')
     searchUrl.searchParams.append('type', 'release')
-    searchUrl.searchParams.append('per_page', '50') // Get more results to filter by engagement
+    searchUrl.searchParams.append('per_page', '100')
 
     const response = await fetch(searchUrl.toString(), {
       method: 'GET',
@@ -359,20 +359,27 @@ export async function getTop2025Albums() {
     // Filter results that have community data and sort by engagement
     const albumsWithEngagement = data.results
       .filter(album => album.community && (album.community.have > 0 || album.community.want > 0))
-      .map(album => ({
-        id: album.id,
-        title: album.title,
-        artist: album.title.split(' - ')[0] || 'Unknown Artist',
-        year: album.year,
-        format: album.format?.join(', ') || 'Unknown Format',
-        label: album.label?.[0] || 'Unknown Label',
-        cover_image: album.cover_image || album.thumb || '',
-        engagement: (album.community?.have || 0) + (album.community?.want || 0),
-        have: album.community?.have || 0,
-        want: album.community?.want || 0
-      }))
+      .map(album => {
+        // Split title by ' - ' to separate artist and album name
+        const titleParts = album.title.split(' - ')
+        const artist = titleParts[0] || 'Unknown Artist'
+        const albumName = titleParts.length > 1 ? titleParts.slice(1).join(' - ') : album.title
+
+        return {
+          id: album.id,
+          title: albumName,
+          artist: artist,
+          year: album.year,
+          format: album.format?.join(', ') || 'Unknown Format',
+          label: album.label?.[0] || 'Unknown Label',
+          cover_image: album.cover_image || album.thumb || '',
+          engagement: (album.community?.have || 0) + (album.community?.want || 0),
+          have: album.community?.have || 0,
+          want: album.community?.want || 0
+        }
+      })
       .sort((a, b) => b.engagement - a.engagement)
-      .slice(0, 10)
+      .slice(0, 100)
 
     return albumsWithEngagement
   } catch (error) {

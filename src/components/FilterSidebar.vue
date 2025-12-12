@@ -248,7 +248,7 @@ export default {
   width: 280px;
   min-height: 100%;
   background: white;
-  border-right: 1px solid #000000;
+  border-right: 2px solid #000000;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100;
   padding: 20px;
@@ -272,7 +272,7 @@ export default {
 }
 
 .filter-divider {
-  height: 1px;
+  height: 2px;
   background: #000000;
   margin-bottom: 12px;
 }
@@ -322,7 +322,7 @@ export default {
   font-size: 14px;
   padding: 6px 16px;
   border: 1px solid #000000;
-  border-radius: 16px;
+  border-radius: 0;
   background: white;
   color: #000000;
   cursor: pointer;

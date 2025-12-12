@@ -185,7 +185,7 @@ export default {
 
 .modal-container {
   background: white;
-  border-radius: 20px;
+  border-radius: 0;
   max-width: 500px;
   width: 100%;
   max-height: 80vh;
@@ -200,7 +200,7 @@ export default {
 
 .modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 2px solid #000000;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -242,7 +242,7 @@ export default {
   display: flex;
   align-items: center;
   background: #f5f5f5;
-  border-radius: 20px;
+  border-radius: 0;
   padding: 10px 16px;
   gap: 8px;
 }
@@ -291,7 +291,7 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -305,6 +305,7 @@ export default {
   height: 20px;
   cursor: pointer;
   accent-color: #000000;
+  border-radius: 0;
 }
 
 .option-label {
@@ -317,7 +318,7 @@ export default {
 
 .modal-footer {
   padding: 20px 24px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 2px solid #000000;
   display: flex;
   gap: 12px;
   justify-content: flex-end;
@@ -328,7 +329,7 @@ export default {
   font-family: "Inria Sans", sans-serif;
   font-size: 16px;
   padding: 10px 24px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
@@ -347,7 +348,7 @@ export default {
 .button-secondary {
   background: white;
   color: #000000;
-  border: 1px solid #919191;
+  border: 2px solid #000000;
 }
 
 .button-secondary:hover {
