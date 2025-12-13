@@ -116,7 +116,7 @@
     <div class="main-content">
       <!-- Popular Albums Section -->
       <div class="popular-section">
-        <h2 class="section-title">Top 100 albums of 2025</h2>
+        <h2 class="section-title">Popular albums released in 2025</h2>
         <div v-if="loadingAlbums" class="loading">Loading albums...</div>
         <div v-else-if="popularAlbums.length > 0" class="albums-grid">
           <a
