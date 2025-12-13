@@ -735,6 +735,73 @@ export function getStyles() {
 }
 
 /**
+ * Get releases by artist ID
+ * @param {number} artistId - The Discogs artist ID
+ * @param {number} perPage - Number of results per page (default 50)
+ * @returns {Promise<Object>} Object with releases array and metadata
+ */
+export async function getArtistReleases(artistId, perPage = 50) {
+  try {
+    const url = new URL(`${DISCOGS_API_BASE}/artists/${artistId}/releases`)
+    url.searchParams.append('key', CONSUMER_KEY)
+    url.searchParams.append('secret', CONSUMER_SECRET)
+    url.searchParams.append('per_page', perPage.toString())
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'DiscogsTopAlbums/1.0'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch artist releases: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Process releases to include only masters and orphan releases
+    const releases = data.releases || []
+
+    // Separate masters and releases
+    const masters = releases.filter(r => r.type === 'master')
+    const orphanReleases = releases.filter(r => r.type === 'release' && r.role === 'Main')
+
+    // Combine and map to include engagement stats
+    const allReleases = [...masters, ...orphanReleases].map(release => ({
+      id: release.id,
+      type: release.type,
+      title: release.title,
+      artist: release.artist,
+      year: release.year,
+      thumb: release.thumb,
+      resource_url: release.resource_url,
+      stats: release.stats,
+      // Calculate engagement score
+      engagement: (release.stats?.community?.in_collection || 0) +
+                  (release.stats?.community?.in_wantlist || 0)
+    }))
+
+    // Sort by engagement (highest first), then by year (newest first)
+    allReleases.sort((a, b) => {
+      if (b.engagement !== a.engagement) {
+        return b.engagement - a.engagement
+      }
+      return (b.year || 0) - (a.year || 0)
+    })
+
+    return {
+      results: allReleases,
+      pagination: data.pagination,
+      total: data.pagination?.items || 0
+    }
+  } catch (error) {
+    console.error('Error fetching artist releases:', error)
+    throw error
+  }
+}
+
+/**
  * Search for releases by genre and/or style
  * @param {Array<string>} genres - Array of genre names
  * @param {Array<string>} styles - Array of style names

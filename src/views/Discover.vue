@@ -216,10 +216,7 @@ export default {
     const itemsPerPage = 24;
 
     const fetchResults = async () => {
-      if (
-        selectedGenres.value.length === 0 &&
-        selectedStyles.value.length === 0
-      ) {
+      if (selectedGenres.value.length === 0) {
         return;
       }
 
@@ -229,9 +226,20 @@ export default {
       currentPage.value = 1; // Reset to first page on new search
 
       try {
+        // Separate selected items into actual genres and styles
+        const actualGenres = getGenres();
+        const actualStyles = getStyles();
+
+        const genresForApi = selectedGenres.value.filter(item =>
+          actualGenres.includes(item)
+        );
+        const stylesForApi = selectedGenres.value.filter(item =>
+          actualStyles.includes(item)
+        );
+
         const data = await searchByGenreStyle(
-          selectedGenres.value,
-          selectedStyles.value,
+          genresForApi,
+          stylesForApi,
           100 // Fetch more results for better pagination
         );
 

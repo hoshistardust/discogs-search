@@ -861,6 +861,7 @@ import {
   searchDiscogsUniversal,
   getMasterTopVersions,
   getMasterVersionCount,
+  getArtistReleases,
 } from "../services/discogs.js";
 import FilterSidebar from "../components/FilterSidebar.vue";
 
@@ -1367,14 +1368,15 @@ export default {
         return;
       }
 
-      // Open new artist
+      // Open new artist and close any open label
       expandedArtistId.value = artist.id;
+      expandedLabelId.value = null;
       expandedAlbums.value = [];
       totalAlbumsCount.value = 0;
 
-      // Check cache first
-      if (albumsCache.value.has(artist.title)) {
-        const cached = albumsCache.value.get(artist.title);
+      // Check cache first (use artist.id for unique caching)
+      if (albumsCache.value.has(artist.id)) {
+        const cached = albumsCache.value.get(artist.id);
         expandedAlbums.value = cached.albums;
         totalAlbumsCount.value = cached.total;
         return;
@@ -1383,21 +1385,12 @@ export default {
       loadingAlbums.value = true;
 
       try {
-        // Fetch masters and releases for this artist
-        const [mastersData, releasesData] = await Promise.all([
-          searchDiscogsUniversal(artist.title, 50, 1, "master"),
-          searchDiscogsUniversal(artist.title, 50, 1, "release"),
-        ]);
-
-        // Filter releases to only include orphans (no master_id)
-        const orphanReleases = releasesData.results.filter((r) => !r.master_id);
-
-        // Merge masters and orphan releases
-        const mergedReleases = [...mastersData.results, ...orphanReleases];
+        // Fetch releases by artist ID (more accurate than searching by name)
+        const data = await getArtistReleases(artist.id, 50);
 
         // Remove duplicates
         const seenIds = new Set();
-        const uniqueReleases = mergedReleases.filter((item) => {
+        const uniqueReleases = data.results.filter((item) => {
           if (seenIds.has(item.id)) return false;
           seenIds.add(item.id);
           return true;
@@ -1410,8 +1403,8 @@ export default {
         // Take top 10
         const topAlbums = uniqueReleases.slice(0, 10);
 
-        // Cache the results with total count
-        albumsCache.value.set(artist.title, { albums: topAlbums, total: totalCount });
+        // Cache the results with total count (use artist.id for unique caching)
+        albumsCache.value.set(artist.id, { albums: topAlbums, total: totalCount });
         expandedAlbums.value = topAlbums;
       } catch (err) {
         console.error("Failed to fetch artist albums:", err);
@@ -1432,8 +1425,9 @@ export default {
         return;
       }
 
-      // Open new label
+      // Open new label and close any open artist
       expandedLabelId.value = label.id;
+      expandedArtistId.value = null;
       expandedAlbums.value = [];
       totalAlbumsCount.value = 0;
 
