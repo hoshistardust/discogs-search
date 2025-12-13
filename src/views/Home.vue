@@ -45,27 +45,20 @@
         <!-- Vertical Divider -->
         <div class="vertical-divider"></div>
 
-        <!-- Genre/Style Discovery Section -->
+        <!-- Genre Discovery Section -->
         <div class="discovery-section">
           <p class="section-label">
-            Discover music based on genres and styles
+            Discover new music based on genres
           </p>
 
           <div class="discovery-inputs">
-            <!-- Labels Row -->
-            <div class="labels-row">
-              <label class="input-label">Choose genres</label>
-              <label class="input-label">Choose styles</label>
-              <span class="button-spacer"></span>
-            </div>
-
-            <!-- Dropdowns and Button Row -->
-            <div class="dropdowns-row">
+            <!-- Dropdown and Button Row -->
+            <div class="dropdown-button-row">
               <!-- Genres Dropdown -->
-              <div class="dropdown-wrapper genre-dropdown" @click="openGenresPopup">
+              <div class="dropdown-wrapper full-width-dropdown" @click="openGenresPopup">
                 <div class="dropdown-display">
                   <div v-if="selectedGenres.length === 0" class="placeholder">
-                    Genres
+                    Choose genres
                   </div>
                   <div v-else class="tags-container">
                     <span
@@ -101,51 +94,11 @@
                 </svg>
               </div>
 
-              <!-- Styles Dropdown -->
-              <div class="dropdown-wrapper style-dropdown" @click="openStylesPopup">
-                  <div class="dropdown-display">
-                    <div v-if="selectedStyles.length === 0" class="placeholder">
-                      Styles
-                    </div>
-                    <div v-else class="tags-container">
-                      <span
-                        v-for="style in selectedStyles"
-                        :key="style"
-                        class="tag"
-                      >
-                        {{ style }}
-                        <button
-                          class="tag-remove"
-                          @click.stop="removeStyle(style)"
-                          aria-label="Remove style"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    </div>
-                  </div>
-                  <svg
-                    class="dropdown-icon"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <path
-                      d="M6 9L12 15L18 9"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-              </div>
-
               <!-- Discover Button -->
               <button
                 class="discover-button"
                 @click="performDiscoverySearch"
-                :disabled="selectedGenres.length === 0 && selectedStyles.length === 0"
+                :disabled="selectedGenres.length === 0"
               >
                 <span class="material-symbols-outlined">search</span>
               </button>
@@ -202,23 +155,15 @@
       </div>
     </div>
 
-    <!-- MultiSelect Popups -->
+    <!-- MultiSelect Popup -->
     <MultiSelectPopup
       :is-open="showGenresPopup"
       title="Choose Genres"
       :options="availableGenres"
       v-model="selectedGenres"
-      @close="showGenresPopup = false"
-    />
-
-    <MultiSelectPopup
-      :is-open="showStylesPopup"
-      title="Choose Styles"
-      :options="availableStyles"
-      v-model="selectedStyles"
       :searchable="true"
       :use-columns="true"
-      @close="showStylesPopup = false"
+      @close="showGenresPopup = false"
     />
   </div>
 </template>
@@ -243,11 +188,8 @@ export default {
 
     const searchQuery = ref("");
     const selectedGenres = ref([]);
-    const selectedStyles = ref([]);
     const showGenresPopup = ref(false);
-    const showStylesPopup = ref(false);
     const availableGenres = ref([]);
-    const availableStyles = ref([]);
     const popularAlbums = ref([]);
     const loadingAlbums = ref(false);
     const displayCount = ref(12); // Show 12 items (3 rows) at a time
@@ -287,8 +229,10 @@ export default {
     };
 
     onMounted(async () => {
-      availableGenres.value = getGenres();
-      availableStyles.value = getStyles();
+      // Combine genres and styles into one list
+      const genres = getGenres();
+      const styles = getStyles();
+      availableGenres.value = [...genres, ...styles].sort();
 
       loadingAlbums.value = true;
 
@@ -320,12 +264,11 @@ export default {
     };
 
     const performDiscoverySearch = () => {
-      if (selectedGenres.value.length > 0 || selectedStyles.value.length > 0) {
+      if (selectedGenres.value.length > 0) {
         router.push({
           path: "/discover",
           query: {
-            genres: selectedGenres.value.join(","),
-            styles: selectedStyles.value.join(","),
+            genres: selectedGenres.value.join("|"),
           },
         });
       }
@@ -335,16 +278,8 @@ export default {
       showGenresPopup.value = true;
     };
 
-    const openStylesPopup = () => {
-      showStylesPopup.value = true;
-    };
-
     const removeGenre = (genre) => {
       selectedGenres.value = selectedGenres.value.filter((g) => g !== genre);
-    };
-
-    const removeStyle = (style) => {
-      selectedStyles.value = selectedStyles.value.filter((s) => s !== style);
     };
 
     const handleImageError = (e) => {
@@ -354,11 +289,8 @@ export default {
     return {
       searchQuery,
       selectedGenres,
-      selectedStyles,
       showGenresPopup,
-      showStylesPopup,
       availableGenres,
-      availableStyles,
       popularAlbums,
       loadingAlbums,
       displayedAlbums,
@@ -368,9 +300,7 @@ export default {
       performSearch,
       performDiscoverySearch,
       openGenresPopup,
-      openStylesPopup,
       removeGenre,
-      removeStyle,
       handleImageError,
     };
   },
@@ -503,6 +433,8 @@ export default {
   height: 44px;
   padding: 14px 16px;
   flex: 1;
+  min-width: 0;
+  width: 100%;
   outline: none;
   line-height: normal;
   font-style: normal;
@@ -537,10 +469,15 @@ export default {
   width: 2px;
   background-color: #000000;
   grid-column: 2;
-  position: relative;
-  top: -28px;
-  height: calc(100% + 56px);
   flex-shrink: 0;
+}
+
+@media (min-width: 1025px) {
+  .vertical-divider {
+    position: relative;
+    top: -28px;
+    height: calc(100% + 56px);
+  }
 }
 
 /* Horizontal Divider */
@@ -571,24 +508,14 @@ export default {
   gap: 8px;
 }
 
-.labels-row {
-  display: flex;
-  gap: 16px;
-}
-
 .input-label {
   font-family: "Inria Sans", sans-serif;
   font-size: 16px;
   color: #000000;
-  flex: 1;
+  margin-bottom: 8px;
 }
 
-.button-spacer {
-  width: 44px;
-  flex-shrink: 0;
-}
-
-.dropdowns-row {
+.dropdown-button-row {
   display: flex;
   gap: 16px;
   align-items: center;
@@ -604,7 +531,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   min-height: 44px;
-  padding: 8px 16px;
+  padding: 6px 16px;
   cursor: pointer;
   transition: border-color 0.2s;
 }
@@ -613,8 +540,7 @@ export default {
   border-color: #333333;
 }
 
-.genre-dropdown,
-.style-dropdown {
+.full-width-dropdown {
   flex: 1;
 }
 
@@ -639,12 +565,12 @@ export default {
 }
 
 .tag {
-  background: #f0f0f0;
-  border-radius: 12px;
+  background: #000000;
+  border-radius: 0;
   padding: 4px 8px;
   font-family: "Inria Sans", sans-serif;
   font-size: 13px;
-  color: #000000;
+  color: #ffffff;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -653,7 +579,7 @@ export default {
 .tag-remove {
   background: none;
   border: none;
-  color: #717171;
+  color: #ffffff;
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -663,10 +589,12 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
 .tag-remove:hover {
-  color: #000000;
+  opacity: 1;
 }
 
 .dropdown-icon {
@@ -834,33 +762,41 @@ export default {
   .discovery-section {
     max-width: 400px;
   }
+
+  .albums-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 1024px) {
   .hero-section {
-    padding: 60px 40px 60px 100px;
+    padding: 60px 40px;
   }
 
   .hero-decoration {
-    right: -151px;
+    right: -100px;
+    width: 250px;
+  }
+
+  .search-content {
+    padding: 28px 40px;
   }
 
   .main-content {
-    padding: 40px 40px 60px 100px;
+    padding: 40px 40px 60px;
   }
 
   .search-columns {
+    display: flex;
     flex-direction: column;
     gap: 40px;
   }
 
-  .search-section {
-    width: 100%;
-    max-width: 500px;
-  }
-
+  .search-section,
   .discovery-section {
-    max-width: 500px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
   }
 
   .vertical-divider {
@@ -873,6 +809,7 @@ export default {
 
   .albums-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
   }
 }
 
@@ -887,37 +824,96 @@ export default {
 
   .hero-subtitle {
     font-size: 18px;
+    max-width: 100%;
   }
 
   .hero-decoration {
-    right: -151px;
-    opacity: 0.5;
+    right: -120px;
+    width: 200px;
+    opacity: 0.6;
   }
 
   .main-content {
     padding: 30px 20px;
   }
 
-  .section-label {
-    font-size: 20px;
+  .sticky-search-container {
+    overflow-x: hidden;
   }
 
-  .dropdowns-row {
+  .search-content {
+    padding: 28px 20px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .search-columns {
+    display: flex;
     flex-direction: column;
-    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    gap: 40px;
   }
 
-  .discover-button {
+  .search-section,
+  .discovery-section {
     width: 100%;
-    border-radius: 20px;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .section-label {
+    font-size: 18px;
+  }
+
+  .search-with-button {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .search-field-solo {
+    font-size: 14px;
+    padding: 10px 12px;
+    min-width: 0;
+  }
+
+  .search-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    flex-shrink: 0;
+  }
+
+  .dropdown-button-row {
+    gap: 12px;
+    width: 100%;
+  }
+
+  .dropdown-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .full-width-dropdown {
+    width: 100%;
   }
 
   .albums-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .album-card {
+    min-width: 0;
   }
 }
 
 @media (max-width: 480px) {
+  .hero-section {
+    padding: 30px 16px;
+  }
+
   .hero-title {
     font-size: 28px;
   }
@@ -926,18 +922,49 @@ export default {
     font-size: 16px;
   }
 
+  .hero-decoration {
+    display: none;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
   .section-label {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .input-label {
+    font-size: 14px;
+  }
+
+  .search-field-solo {
+    font-size: 14px;
+    padding: 12px;
+  }
+
+  .placeholder {
+    font-size: 13px;
+  }
+
+  .tag {
+    font-size: 12px;
+    padding: 3px 6px;
   }
 
   .albums-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .album-title,
   .album-artist,
   .album-meta {
     font-size: 14px;
+  }
+
+  .section-header h2 {
+    font-size: 20px;
   }
 }
 </style>

@@ -7,7 +7,7 @@
       @click="toggleMobileSidebar"
       :aria-label="mobileSidebarOpen ? 'Close filters' : 'Open filters'"
     >
-      <span class="material-icons">menu</span>
+      <span class="material-symbols-outlined">menu</span>
     </button>
 
     <!-- Mobile Overlay - Only show when sidebar is open -->
@@ -21,6 +21,9 @@
       :is-open="showFilters && (isMobileView ? mobileSidebarOpen : true)"
       :available-formats="availableFormats"
       :available-countries="availableCountries"
+      :available-genres="availableGenres"
+      :available-styles="availableStyles"
+      :available-decades="availableDecades"
       @filter-change="handleFilterChange"
     />
 
@@ -917,6 +920,8 @@ export default {
       formats: [],
       countries: [],
       decades: [],
+      genres: [],
+      styles: [],
     });
 
     const performSearch = async () => {
@@ -931,6 +936,9 @@ export default {
     // Aggregated filter options
     const availableFormats = ref([]);
     const availableCountries = ref([]);
+    const availableGenres = ref([]);
+    const availableStyles = ref([]);
+    const availableDecades = ref([]);
 
     const aggregateFilterOptions = (releasesList) => {
       // Aggregate formats
@@ -952,6 +960,26 @@ export default {
         }
       });
 
+      // Aggregate genres
+      const genreCounts = {};
+      releasesList.forEach((release) => {
+        if (release.genre && Array.isArray(release.genre)) {
+          release.genre.forEach((genre) => {
+            genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+          });
+        }
+      });
+
+      // Aggregate styles
+      const styleCounts = {};
+      releasesList.forEach((release) => {
+        if (release.style && Array.isArray(release.style)) {
+          release.style.forEach((style) => {
+            styleCounts[style] = (styleCounts[style] || 0) + 1;
+          });
+        }
+      });
+
       // Sort by count and get top options
       availableFormats.value = Object.entries(formatCounts)
         .sort((a, b) => b[1] - a[1])
@@ -960,6 +988,30 @@ export default {
       availableCountries.value = Object.entries(countryCounts)
         .sort((a, b) => b[1] - a[1])
         .map(([country]) => country);
+
+      availableGenres.value = Object.entries(genreCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([genre]) => genre);
+
+      availableStyles.value = Object.entries(styleCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([style]) => style);
+
+      // Aggregate decades
+      const decadeCounts = {};
+      releasesList.forEach((release) => {
+        if (release.year) {
+          const yearNum = parseInt(release.year);
+          if (!isNaN(yearNum)) {
+            const decade = Math.floor(yearNum / 10) * 10;
+            decadeCounts[decade] = (decadeCounts[decade] || 0) + 1;
+          }
+        }
+      });
+
+      availableDecades.value = Object.entries(decadeCounts)
+        .sort((a, b) => parseInt(b[0]) - parseInt(a[0])) // Sort by decade descending
+        .map(([decade]) => parseInt(decade));
     };
 
     // Fetch initial results for "All" view
@@ -1471,6 +1523,30 @@ export default {
         });
       }
 
+      // Apply genre filter
+      if (activeFilters.value.genres.length > 0) {
+        results = results.filter((release) => {
+          if (!release.genre || release.genre.length === 0) return false;
+          return activeFilters.value.genres.some((filter) =>
+            release.genre.some((g) =>
+              g.toLowerCase().includes(filter.toLowerCase())
+            )
+          );
+        });
+      }
+
+      // Apply style filter
+      if (activeFilters.value.styles.length > 0) {
+        results = results.filter((release) => {
+          if (!release.style || release.style.length === 0) return false;
+          return activeFilters.value.styles.some((filter) =>
+            release.style.some((s) =>
+              s.toLowerCase().includes(filter.toLowerCase())
+            )
+          );
+        });
+      }
+
       // Apply sorting
       if (sortBy.value === "year-desc") {
         results.sort((a, b) => (b.year || 0) - (a.year || 0));
@@ -1551,7 +1627,9 @@ export default {
       if (
         activeFilters.value.formats.length > 0 ||
         activeFilters.value.countries.length > 0 ||
-        activeFilters.value.decades.length > 0
+        activeFilters.value.decades.length > 0 ||
+        activeFilters.value.genres.length > 0 ||
+        activeFilters.value.styles.length > 0
       ) {
         return Math.ceil(filteredReleases.value.length / itemsPerPage);
       }
@@ -1668,6 +1746,9 @@ export default {
       showFilters,
       availableFormats,
       availableCountries,
+      availableGenres,
+      availableStyles,
+      availableDecades,
       paginatedReleases,
       paginatedArtists,
       paginatedLabels,
@@ -1752,10 +1833,9 @@ export default {
   opacity: 0.7;
 }
 
-.header-hamburger-btn .material-icons {
+.header-hamburger-btn .material-symbols-outlined {
   color: #ffffff;
   font-size: 28px;
-  font-weight: 200;
 }
 
 /* Mobile Sidebar Overlay */

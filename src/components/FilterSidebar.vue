@@ -1,5 +1,71 @@
 <template>
   <div class="filter-sidebar" :class="{ open: isOpen }">
+    <!-- Genre Filter -->
+    <div class="filter-section">
+      <div class="filter-header" @click="toggleSection('genre')">
+        <h3 class="filter-title">Genre</h3>
+        <button class="toggle-btn" :aria-label="genreExpanded ? 'Collapse' : 'Expand'">
+          {{ genreExpanded ? '−' : '+' }}
+        </button>
+      </div>
+      <div class="filter-divider"></div>
+      <Transition name="expand">
+        <div v-show="genreExpanded" class="filter-content">
+          <div class="filter-options">
+            <button
+              v-for="genre in displayedGenres"
+              :key="genre"
+              class="filter-option"
+              :class="{ active: selectedGenres.includes(genre) }"
+              @click="toggleGenre(genre)"
+            >
+              {{ genre }}
+            </button>
+          </div>
+          <button
+            v-if="availableGenres.length > 12"
+            class="view-all-btn"
+            @click="openGenresPopup"
+          >
+            View all genres
+          </button>
+        </div>
+      </Transition>
+    </div>
+
+    <!-- Style Filter -->
+    <div class="filter-section">
+      <div class="filter-header" @click="toggleSection('style')">
+        <h3 class="filter-title">Style</h3>
+        <button class="toggle-btn" :aria-label="styleExpanded ? 'Collapse' : 'Expand'">
+          {{ styleExpanded ? '−' : '+' }}
+        </button>
+      </div>
+      <div class="filter-divider"></div>
+      <Transition name="expand">
+        <div v-show="styleExpanded" class="filter-content">
+          <div class="filter-options">
+            <button
+              v-for="style in displayedStyles"
+              :key="style"
+              class="filter-option"
+              :class="{ active: selectedStyles.includes(style) }"
+              @click="toggleStyle(style)"
+            >
+              {{ style }}
+            </button>
+          </div>
+          <button
+            v-if="availableStyles.length > 12"
+            class="view-all-btn"
+            @click="openStylesPopup"
+          >
+            View all styles
+          </button>
+        </div>
+      </Transition>
+    </div>
+
     <!-- Format Filter -->
     <div class="filter-section">
       <div class="filter-header" @click="toggleSection('format')">
@@ -78,7 +144,7 @@
       <Transition name="expand">
         <div v-show="decadeExpanded" class="filter-options">
           <button
-            v-for="decade in decades"
+            v-for="decade in displayedDecades"
             :key="decade"
             class="filter-option"
             :class="{ active: selectedDecades.includes(decade) }"
@@ -109,13 +175,33 @@
       :searchable="true"
       @close="showCountriesPopup = false"
     />
+
+    <!-- Genre Popup -->
+    <MultiSelectPopup
+      :is-open="showGenresPopup"
+      title="All Genres"
+      :options="allGenres"
+      v-model="selectedGenres"
+      :searchable="true"
+      @close="showGenresPopup = false"
+    />
+
+    <!-- Style Popup -->
+    <MultiSelectPopup
+      :is-open="showStylesPopup"
+      title="All Styles"
+      :options="allStyles"
+      v-model="selectedStyles"
+      :searchable="true"
+      @close="showStylesPopup = false"
+    />
   </div>
 </template>
 
 <script>
 import { ref, computed, watch } from 'vue';
 import MultiSelectPopup from './MultiSelectPopup.vue';
-import { getFormats, getCountries } from '../services/discogs.js';
+import { getFormats, getCountries, getGenres, getStyles } from '../services/discogs.js';
 
 export default {
   name: 'FilterSidebar',
@@ -135,34 +221,57 @@ export default {
       type: Array,
       default: () => [],
     },
+    availableGenres: {
+      type: Array,
+      default: () => [],
+    },
+    availableStyles: {
+      type: Array,
+      default: () => [],
+    },
+    availableDecades: {
+      type: Array,
+      default: () => [],
+    },
   },
   emits: ['filter-change'],
   setup(props, { emit }) {
     const formatExpanded = ref(true);
     const countryExpanded = ref(true);
     const decadeExpanded = ref(true);
+    const genreExpanded = ref(true);
+    const styleExpanded = ref(true);
 
     const selectedFormats = ref([]);
     const selectedCountries = ref([]);
     const selectedDecades = ref([]);
+    const selectedGenres = ref([]);
+    const selectedStyles = ref([]);
 
     const showFormatsPopup = ref(false);
     const showCountriesPopup = ref(false);
+    const showGenresPopup = ref(false);
+    const showStylesPopup = ref(false);
 
     // Complete lists for "View all" popups (all available options)
     const allFormats = ref(getFormats());
     const allCountries = ref(getCountries());
+    const allGenres = ref(getGenres());
+    const allStyles = ref(getStyles());
 
     // Top 12 from search results for sidebar display
     const displayedFormats = computed(() => props.availableFormats.slice(0, 12));
     const displayedCountries = computed(() => props.availableCountries.slice(0, 12));
-
-    const decades = ref([2020, 2010, 2000, 1990, 1980, 1970, 1960, 1950, 1940, 1930, 1920]);
+    const displayedGenres = computed(() => props.availableGenres.slice(0, 12));
+    const displayedStyles = computed(() => props.availableStyles.slice(0, 12));
+    const displayedDecades = computed(() => props.availableDecades.slice(0, 12));
 
     const toggleSection = (section) => {
       if (section === 'format') formatExpanded.value = !formatExpanded.value;
       if (section === 'country') countryExpanded.value = !countryExpanded.value;
       if (section === 'decade') decadeExpanded.value = !decadeExpanded.value;
+      if (section === 'genre') genreExpanded.value = !genreExpanded.value;
+      if (section === 'style') styleExpanded.value = !styleExpanded.value;
     };
 
     const toggleFormat = (format) => {
@@ -195,6 +304,26 @@ export default {
       emitFilterChange();
     };
 
+    const toggleGenre = (genre) => {
+      const index = selectedGenres.value.indexOf(genre);
+      if (index > -1) {
+        selectedGenres.value.splice(index, 1);
+      } else {
+        selectedGenres.value.push(genre);
+      }
+      emitFilterChange();
+    };
+
+    const toggleStyle = (style) => {
+      const index = selectedStyles.value.indexOf(style);
+      if (index > -1) {
+        selectedStyles.value.splice(index, 1);
+      } else {
+        selectedStyles.value.push(style);
+      }
+      emitFilterChange();
+    };
+
     const openFormatsPopup = () => {
       showFormatsPopup.value = true;
     };
@@ -203,15 +332,25 @@ export default {
       showCountriesPopup.value = true;
     };
 
+    const openGenresPopup = () => {
+      showGenresPopup.value = true;
+    };
+
+    const openStylesPopup = () => {
+      showStylesPopup.value = true;
+    };
+
     const emitFilterChange = () => {
       emit('filter-change', {
         formats: selectedFormats.value,
         countries: selectedCountries.value,
         decades: selectedDecades.value,
+        genres: selectedGenres.value,
+        styles: selectedStyles.value,
       });
     };
 
-    watch([selectedFormats, selectedCountries, selectedDecades], () => {
+    watch([selectedFormats, selectedCountries, selectedDecades, selectedGenres, selectedStyles], () => {
       emitFilterChange();
     }, { deep: true });
 
@@ -219,22 +358,36 @@ export default {
       formatExpanded,
       countryExpanded,
       decadeExpanded,
+      genreExpanded,
+      styleExpanded,
       selectedFormats,
       selectedCountries,
       selectedDecades,
+      selectedGenres,
+      selectedStyles,
       showFormatsPopup,
       showCountriesPopup,
+      showGenresPopup,
+      showStylesPopup,
       allFormats,
       allCountries,
-      decades,
+      allGenres,
+      allStyles,
       displayedFormats,
       displayedCountries,
+      displayedGenres,
+      displayedStyles,
+      displayedDecades,
       toggleSection,
       toggleFormat,
       toggleCountry,
       toggleDecade,
+      toggleGenre,
+      toggleStyle,
       openFormatsPopup,
       openCountriesPopup,
+      openGenresPopup,
+      openStylesPopup,
     };
   },
 };
@@ -298,11 +451,11 @@ export default {
   align-items: center;
   justify-content: center;
   color: #000000;
-  transition: transform 0.2s;
+  transition: transform 0.3s ease;
 }
 
 .toggle-btn:hover {
-  transform: scale(1.2);
+  transform: rotate(90deg);
 }
 
 .filter-content {
